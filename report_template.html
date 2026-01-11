@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automated Test Report - {{ session.website_url }}</title>
+    <style>
+        :root {
+            --bg-primary: #0f0f23;
+            --bg-secondary: #1a1a2e;
+            --bg-tertiary: #16213e;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --accent: #8b5cf6;
+            --accent-light: #a78bfa;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --border: #27272a;
+            --critical: #dc2626;
+            --high: #ea580c;
+            --medium: #ca8a04;
+            --low: #65a30d;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            background: linear-gradient(135deg, var(--accent-light), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .meta {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .summary-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .summary-card .value {
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+
+        .summary-card .label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+
+        .summary-card.success .value {
+            color: var(--success);
+        }
+
+        .summary-card.warning .value {
+            color: var(--warning);
+        }
+
+        .summary-card.error .value {
+            color: var(--error);
+        }
+
+        .summary-card.info .value {
+            color: var(--accent);
+        }
+
+        .section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-header {
+            background: var(--bg-tertiary);
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-header h2 {
+            font-size: 1.1rem;
+        }
+
+        .section-content {
+            padding: 1.5rem;
+        }
+
+        /* Crawl Path Visualization */
+        .crawl-path {
+            padding: 1rem 0;
+        }
+
+        .path-step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+
+        .path-connector {
+            width: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-right: 1rem;
+        }
+
+        .path-number {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .path-number.passed {
+            background: var(--success);
+        }
+
+        .path-number.warning {
+            background: var(--warning);
+        }
+
+        .path-number.failed {
+            background: var(--error);
+        }
+
+        .path-line {
+            width: 2px;
+            height: 40px;
+            background: var(--border);
+            margin-top: 4px;
+        }
+
+        .path-step:last-child .path-line {
+            display: none;
+        }
+
+        .path-info {
+            flex: 1;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+        }
+
+        .path-url {
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: var(--accent-light);
+            word-break: break-all;
+        }
+
+        .path-meta {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        .path-from {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+        }
+
+        .path-from strong {
+            color: var(--text-primary);
+        }
+
+        /* Error explanations */
+        .explanation-box {
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        .explanation-title {
+            font-weight: 600;
+            color: var(--accent-light);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .explanation-text {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .suggestion {
+            background: rgba(34, 197, 94, 0.1);
+            border-left: 3px solid var(--success);
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+        }
+
+        .suggestion-label {
+            color: var(--success);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+        }
+
+        .severity-badge {
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .severity-critical {
+            background: rgba(220, 38, 38, 0.2);
+            color: var(--critical);
+        }
+
+        .severity-high {
+            background: rgba(234, 88, 12, 0.2);
+            color: var(--high);
+        }
+
+        .severity-medium {
+            background: rgba(202, 138, 4, 0.2);
+            color: var(--medium);
+        }
+
+        .severity-low {
+            background: rgba(101, 163, 13, 0.2);
+            color: var(--low);
+        }
+
+        .page-result {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 1rem;
+        }
+
+        .page-header {
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .page-url {
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: var(--accent-light);
+            word-break: break-all;
+        }
+
+        .page-title {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .page-source {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+        }
+
+        .page-source strong {
+            color: var(--accent-light);
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-passed {
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--success);
+        }
+
+        .status-failed {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--error);
+        }
+
+        .status-warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+        }
+
+        .status-skipped {
+            background: rgba(161, 161, 170, 0.2);
+            color: var(--text-secondary);
+        }
+
+        .page-details {
+            padding: 1rem 1.5rem;
+            display: none;
+            border-top: 1px solid var(--border);
+        }
+
+        .page-details.active {
+            display: block;
+        }
+
+        .error-item {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .error-item.network {
+            background: rgba(245, 158, 11, 0.1);
+            border-color: rgba(245, 158, 11, 0.3);
+        }
+
+        .error-type {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--error);
+        }
+
+        .error-item.network .error-type {
+            color: var(--warning);
+        }
+
+        .error-message {
+            font-family: monospace;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            word-break: break-all;
+        }
+
+        .element-test {
+            display: flex;
+            align-items: flex-start;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .element-type {
+            background: var(--bg-primary);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            min-width: 80px;
+            text-align: center;
+            margin-right: 1rem;
+        }
+
+        .element-info {
+            flex: 1;
+        }
+
+        .element-selector {
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .screenshot-link {
+            color: var(--accent);
+            text-decoration: none;
+            margin-left: 0.5rem;
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .filters {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+
+        .filter-btn:hover,
+        .filter-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .toggle-icon {
+            transition: transform 0.3s;
+        }
+
+        .toggle-icon.rotated {
+            transform: rotate(180deg);
+        }
+
+        .depth-badge {
+            background: var(--bg-primary);
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            margin-left: 0.5rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Automated Test Report</h1>
+            <div class="meta">
+                <strong>Website:</strong> {{ session.website_url }}<br>
+                <strong>Test Run:</strong> {{ session.start_time }} | <strong>Duration:</strong> {{
+                "%.1f"|format(session.duration_seconds) }}s
+            </div>
+        </header>
+
+        <div class="summary-grid">
+            <div class="summary-card info">
+                <div class="value">{{ session.total_pages }}</div>
+                <div class="label">Pages Tested</div>
+            </div>
+            <div class="summary-card {{ 'success' if session.pages_with_errors == 0 else 'error' }}">
+                <div class="value">{{ session.pages_with_errors }}</div>
+                <div class="label">Pages with Errors</div>
+            </div>
+            <div class="summary-card {{ 'success' if session.total_network_errors == 0 else 'warning' }}">
+                <div class="value">{{ session.total_network_errors }}</div>
+                <div class="label">Network Errors</div>
+            </div>
+            <div class="summary-card {{ 'success' if session.total_console_errors == 0 else 'warning' }}">
+                <div class="value">{{ session.total_console_errors }}</div>
+                <div class="label">Console Errors</div>
+            </div>
+            <div class="summary-card info">
+                <div class="value">{{ session.total_element_tests }}</div>
+                <div class="label">Elements Tested</div>
+            </div>
+            <div class="summary-card {{ 'success' if session.total_element_failures == 0 else 'error' }}">
+                <div class="value">{{ session.total_element_failures }}</div>
+                <div class="label">Element Failures</div>
+            </div>
+        </div>
+
+        <!-- Crawl Path Section -->
+        <div class="section">
+            <div class="section-header" onclick="toggleSection(this)">
+                <h2>Crawl Path (Page Discovery Order)</h2>
+                <span class="toggle-icon">&#9660;</span>
+            </div>
+            <div class="section-content" style="display: none;">
+                <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.9rem;">
+                    This shows the order in which pages were discovered and tested. Each page shows where it was found
+                    from.
+                </p>
+                <div class="crawl-path">
+                    {% for step in session.crawl_path %}
+                    <div class="path-step">
+                        <div class="path-connector">
+                            <div class="path-number {{ step.status.value }}">{{ step.step_number }}</div>
+                            <div class="path-line"></div>
+                        </div>
+                        <div class="path-info">
+                            <div class="path-url">{{ step.url }}</div>
+                            <div class="path-meta">
+                                <strong>{{ step.title or 'No title' }}</strong> | Found {{ step.links_found }} links
+                            </div>
+                            <div class="path-from">
+                                Discovered from: <strong>{{ step.discovered_from }}</strong>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Page Results Section -->
+        <div class="section">
+            <div class="section-header" onclick="toggleSection(this)">
+                <h2>Page Results</h2>
+                <span class="toggle-icon">&#9660;</span>
+            </div>
+            <div class="section-content">
+                <div class="filters">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="errors">With Errors</button>
+                    <button class="filter-btn" data-filter="passed">Passed</button>
+                </div>
+
+                {% for page in session.pages_tested %}
+                <div class="page-result" data-has-errors="{{ 'true' if page.has_errors else 'false' }}">
+                    <div class="page-header" onclick="toggleDetails(this)">
+                        <div>
+                            <div class="page-url">
+                                {{ page.url }}
+                                <span class="depth-badge">Depth: {{ page.crawl_depth }}</span>
+                            </div>
+                            <div class="page-title">{{ page.title or 'No title' }}</div>
+                            <div class="page-source">
+                                Discovered from: <strong>{{ page.discovered_from or 'Start Page' }}</strong>
+                            </div>
+                            <div class="stats-bar">
+                                <span>Load: <strong>{{ "%.0f"|format(page.load_time_ms) }}ms</strong></span>
+                                <span>Elements: <strong>{{ page.total_elements_tested }}</strong></span>
+                            </div>
+                        </div>
+                        <span class="status-badge status-{{ page.status.value }}">{{ page.status.value }}</span>
+                    </div>
+                    <div class="page-details">
+                        {% if page.network_errors %}
+                        <h4 style="color: var(--warning); margin-bottom: 0.75rem;">Network Errors ({{
+                            page.network_errors|length }})</h4>
+                        {% for error in page.network_errors %}
+                        <div class="error-item network">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div class="error-type">{{ error.method }} {{ error.status_code }} {{ error.status_text
+                                    }}</div>
+                                <span class="severity-badge severity-{{ error.severity }}">{{ error.severity }}</span>
+                            </div>
+                            <div class="error-message">{{ error.url }}</div>
+                            {% if error.explanation_title %}
+                            <div class="explanation-box">
+                                <div class="explanation-title">{{ error.explanation_title }}</div>
+                                <div class="explanation-text">{{ error.explanation_text }}</div>
+                                <div class="suggestion">
+                                    <div class="suggestion-label">Suggested Fix</div>
+                                    {{ error.suggestion }}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+
+                        {% if page.console_errors %}
+                        <h4 style="color: var(--error); margin: 1rem 0 0.75rem;">Console Errors ({{
+                            page.console_errors|length }})</h4>
+                        {% for error in page.console_errors %}
+                        <div class="error-item">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div class="error-type">{{ error.error_type }}</div>
+                                <span class="severity-badge severity-{{ error.severity }}">{{ error.severity }}</span>
+                            </div>
+                            <div class="error-message">{{ error.message[:500] }}</div>
+                            {% if error.explanation_title %}
+                            <div class="explanation-box">
+                                <div class="explanation-title">{{ error.explanation_title }}</div>
+                                <div class="explanation-text">{{ error.explanation_text }}</div>
+                                <div class="suggestion">
+                                    <div class="suggestion-label">Suggested Fix</div>
+                                    {{ error.suggestion }}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+
+                        {% if page.element_tests %}
+                        <h4 style="margin: 1rem 0 0.75rem;">Element Tests ({{ page.total_elements_tested }})</h4>
+                        {% for test in page.element_tests %}
+                        <div class="element-test">
+                            <span class="element-type">{{ test.element_type }}</span>
+                            <div class="element-info">
+                                <div>{{ test.element_text }}</div>
+                                <div class="element-selector">{{ test.element_selector }}</div>
+                                {% if test.error_message %}
+                                <div style="color: var(--error); font-size: 0.85rem; margin-top: 0.25rem;">{{
+                                    test.error_message[:200] }}</div>
+                                {% endif %}
+                                {% if test.explanation_title and test.status.value == 'failed' %}
+                                <div class="explanation-box" style="margin-top: 0.5rem;">
+                                    <div class="explanation-title">
+                                        {{ test.explanation_title }}
+                                        <span class="severity-badge severity-{{ test.severity }}">{{ test.severity
+                                            }}</span>
+                                    </div>
+                                    <div class="explanation-text">{{ test.explanation_text }}</div>
+                                    <div class="suggestion">
+                                        <div class="suggestion-label">Suggested Fix</div>
+                                        {{ test.suggestion }}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <span class="status-badge status-{{ test.status.value }}">{{ test.status.value }}</span>
+                            {% if test.screenshot_path %}<a href="{{ test.screenshot_path }}" class="screenshot-link"
+                                target="_blank">[Screenshot]</a>{% endif %}
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+
+                        {% if not page.network_errors and not page.console_errors and page.elements_failed == 0 %}
+                        <p style="color: var(--success); text-align: center; padding: 1rem;">No errors detected on this
+                            page</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <footer>Generated by Automated Website Testing Tool | {{ session.end_time }}</footer>
+    </div>
+
+    <script>
+        function toggleDetails(header) {
+            const details = header.nextElementSibling;
+            details.classList.toggle('active');
+        }
+
+        function toggleSection(header) {
+            const content = header.nextElementSibling;
+            const icon = header.querySelector('.toggle-icon');
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                icon.classList.add('rotated');
+            } else {
+                content.style.display = 'none';
+                icon.classList.remove('rotated');
+            }
+        }
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const filter = btn.dataset.filter;
+                document.querySelectorAll('.page-result').forEach(page => {
+                    const hasErrors = page.dataset.hasErrors === 'true';
+                    if (filter === 'all') {
+                        page.style.display = 'block';
+                    } else if (filter === 'errors') {
+                        page.style.display = hasErrors ? 'block' : 'none';
+                    } else if (filter === 'passed') {
+                        page.style.display = !hasErrors ? 'block' : 'none';
+                    }
+                });
+            });
+        });
+
+        // Auto-expand sections with errors
+        document.querySelectorAll('.page-result').forEach(page => {
+            if (page.dataset.hasErrors === 'true') {
+                // Optionally auto-expand pages with errors
+                // page.querySelector('.page-details').classList.add('active');
+            }
+        });
+    </script>
+</body>
+
+</html>

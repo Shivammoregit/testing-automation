@@ -1,0 +1,286 @@
+"""
+Page crawler module - discovers all pages and elements on the website.
+"""
+
+import time
+from urllib.parse import urljoin, urlparse
+from typing import Set, List, Tuple
+from playwright.sync_api import Page, ElementHandle
+import config
+from models import NetworkError, ConsoleError, PageTest, ElementTest, TestStatus
+
+
+class PageCrawler:
+    """Crawls and discovers pages on a website."""
+    
+    def __init__(self, page: Page, base_url: str):
+        self.page = page
+        self.base_url = base_url
+        self.base_domain = urlparse(base_url).netloc
+        self.visited_urls: Set[str] = set()
+        self.urls_to_visit: List[Tuple[str, int]] = []  # (url, depth)
+        self.network_errors: List[NetworkError] = []
+        self.console_errors: List[ConsoleError] = []
+        
+        # Set up network and console listeners
+        self._setup_listeners()
+    
+    def _setup_listeners(self):
+        """Set up listeners for network and console errors."""
+        
+        def handle_response(response):
+            if response.status in config.ERROR_STATUS_CODES:
+                try:
+                    request = response.request
+                    self.network_errors.append(NetworkError(
+                        url=response.url,
+                        method=request.method,
+                        status_code=response.status,
+                        status_text=response.status_text,
+                        request_headers=dict(request.headers) if request.headers else {},
+                        response_headers=dict(response.headers) if response.headers else {}
+                    ))
+                except Exception as e:
+                    print(f"Error capturing network error: {e}")
+        
+        def handle_console(msg):
+            if msg.type in config.CONSOLE_ERROR_TYPES:
+                self.console_errors.append(ConsoleError(
+                    message=msg.text,
+                    error_type=msg.type,
+                    source=msg.location.get("url", "") if msg.location else "",
+                    line_number=msg.location.get("lineNumber", 0) if msg.location else 0
+                ))
+        
+        def handle_page_error(error):
+            self.console_errors.append(ConsoleError(
+                message=str(error),
+                error_type="pageerror",
+                source="page"
+            ))
+        
+        self.page.on("response", handle_response)
+        self.page.on("console", handle_console)
+        self.page.on("pageerror", handle_page_error)
+    
+    def _is_valid_url(self, url: str) -> bool:
+        """Check if URL should be crawled."""
+        if not url:
+            return False
+        
+        # Parse the URL
+        parsed = urlparse(url)
+        
+        # Must be same domain
+        if parsed.netloc and parsed.netloc != self.base_domain:
+            return False
+        
+        # Check excluded patterns
+        for pattern in config.EXCLUDED_URL_PATTERNS:
+            if pattern.lower() in url.lower():
+                return False
+        
+        return True
+    
+    def _normalize_url(self, url: str) -> str:
+        """Normalize URL for comparison."""
+        # Make absolute URL
+        absolute_url = urljoin(self.page.url, url)
+        
+        # Remove fragments
+        parsed = urlparse(absolute_url)
+        normalized = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        
+        # Remove trailing slash for consistency
+        if normalized.endswith("/") and len(normalized) > len(f"{parsed.scheme}://{parsed.netloc}/"):
+            normalized = normalized[:-1]
+        
+        return normalized
+    
+    def discover_links(self) -> List[str]:
+        """Discover all links on the current page."""
+        discovered = []
+        
+        try:
+            # Find all anchor tags
+            links = self.page.query_selector_all("a[href]")
+            
+            for link in links:
+                try:
+                    href = link.get_attribute("href")
+                    if href and self._is_valid_url(href):
+                        normalized = self._normalize_url(href)
+                        if normalized not in self.visited_urls:
+                            discovered.append(normalized)
+                except Exception:
+                    continue
+        except Exception as e:
+            print(f"Error discovering links: {e}")
+        
+        return list(set(discovered))
+    
+    def discover_interactive_elements(self) -> List[dict]:
+        """Discover all interactive elements on the current page."""
+        elements = []
+        
+        # Buttons
+        try:
+            buttons = self.page.query_selector_all("button:visible, [role='button']:visible, input[type='button']:visible, input[type='submit']:visible")
+            for btn in buttons:
+                if self._should_test_element(btn):
+                    elements.append({
+                        "type": "button",
+                        "element": btn,
+                        "text": self._get_element_text(btn),
+                        "selector": self._get_selector(btn)
+                    })
+        except Exception:
+            pass
+        
+        # Clickable elements (not links)
+        try:
+            clickables = self.page.query_selector_all("[onclick]:visible, [data-action]:visible")
+            for elem in clickables:
+                if self._should_test_element(elem):
+                    elements.append({
+                        "type": "clickable",
+                        "element": elem,
+                        "text": self._get_element_text(elem),
+                        "selector": self._get_selector(elem)
+                    })
+        except Exception:
+            pass
+        
+        # Form inputs
+        try:
+            inputs = self.page.query_selector_all("input:visible:not([type='hidden']), select:visible, textarea:visible")
+            for inp in inputs:
+                elements.append({
+                    "type": "input",
+                    "element": inp,
+                    "text": self._get_element_text(inp),
+                    "selector": self._get_selector(inp)
+                })
+        except Exception:
+            pass
+        
+        # Navigation items
+        try:
+            nav_items = self.page.query_selector_all("nav a:visible, .nav a:visible, .navbar a:visible, .menu a:visible")
+            for nav in nav_items:
+                if self._should_test_element(nav):
+                    elements.append({
+                        "type": "nav_link",
+                        "element": nav,
+                        "text": self._get_element_text(nav),
+                        "selector": self._get_selector(nav)
+                    })
+        except Exception:
+            pass
+        
+        # Dropdowns and toggles
+        try:
+            dropdowns = self.page.query_selector_all("[data-toggle]:visible, [data-bs-toggle]:visible, .dropdown-toggle:visible")
+            for dd in dropdowns:
+                if self._should_test_element(dd):
+                    elements.append({
+                        "type": "dropdown",
+                        "element": dd,
+                        "text": self._get_element_text(dd),
+                        "selector": self._get_selector(dd)
+                    })
+        except Exception:
+            pass
+        
+        # Modals triggers
+        try:
+            modals = self.page.query_selector_all("[data-modal]:visible, [data-bs-target^='#']:visible")
+            for modal in modals:
+                if self._should_test_element(modal):
+                    elements.append({
+                        "type": "modal_trigger",
+                        "element": modal,
+                        "text": self._get_element_text(modal),
+                        "selector": self._get_selector(modal)
+                    })
+        except Exception:
+            pass
+        
+        return elements
+    
+    def _should_test_element(self, element) -> bool:
+        """Check if element should be tested (not in excluded list)."""
+        for selector in config.EXCLUDED_ELEMENT_SELECTORS:
+            try:
+                if element.evaluate(f"el => el.matches('{selector}')"):
+                    return False
+            except Exception:
+                continue
+        return True
+    
+    def _get_element_text(self, element) -> str:
+        """Get readable text from element."""
+        try:
+            # Try inner text
+            text = element.inner_text()
+            if text and text.strip():
+                return text.strip()[:100]
+            
+            # Try value
+            value = element.get_attribute("value")
+            if value:
+                return value[:100]
+            
+            # Try placeholder
+            placeholder = element.get_attribute("placeholder")
+            if placeholder:
+                return placeholder[:100]
+            
+            # Try aria-label
+            aria = element.get_attribute("aria-label")
+            if aria:
+                return aria[:100]
+            
+            # Try title
+            title = element.get_attribute("title")
+            if title:
+                return title[:100]
+            
+            return "[No text]"
+        except Exception:
+            return "[Unknown]"
+    
+    def _get_selector(self, element) -> str:
+        """Generate a selector for the element."""
+        try:
+            # Try ID
+            elem_id = element.get_attribute("id")
+            if elem_id:
+                return f"#{elem_id}"
+            
+            # Try data-testid
+            testid = element.get_attribute("data-testid")
+            if testid:
+                return f"[data-testid='{testid}']"
+            
+            # Try class + text combination
+            classes = element.get_attribute("class")
+            text = self._get_element_text(element)
+            if classes and text != "[No text]":
+                main_class = classes.split()[0] if classes else ""
+                return f".{main_class}:has-text('{text[:30]}')"
+            
+            # Fallback to tag name
+            tag = element.evaluate("el => el.tagName.toLowerCase()")
+            return tag
+        except Exception:
+            return "[unknown]"
+    
+    def clear_errors(self):
+        """Clear collected errors (call before testing a new page)."""
+        self.network_errors = []
+        self.console_errors = []
+    
+    def get_collected_errors(self) -> Tuple[List[NetworkError], List[ConsoleError]]:
+        """Get collected errors."""
+        return self.network_errors.copy(), self.console_errors.copy()
