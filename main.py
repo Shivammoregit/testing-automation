@@ -110,6 +110,21 @@ def wait_for_manual_login(page, login_url: str, wait_time: int):
     return False
 
 
+def get_module_name(url: str) -> str:
+    """Resolve a module name for the given URL."""
+    parsed = urlparse(url)
+    for module_name, module_urls in config.MODULES.items():
+        for seed_url in module_urls:
+            seed_parsed = urlparse(seed_url)
+            if parsed.scheme != seed_parsed.scheme or parsed.netloc != seed_parsed.netloc:
+                continue
+            seed_path = seed_parsed.path.rstrip("/")
+            url_path = parsed.path.rstrip("/")
+            if url_path == seed_path or url_path.startswith(seed_path + "/"):
+                return module_name
+    return "Uncategorized"
+
+
 def test_page(page, crawler: PageCrawler, tester: ElementTester, url: str) -> PageTest:
     """Test a single page."""
     page_test = PageTest(
@@ -117,6 +132,7 @@ def test_page(page, crawler: PageCrawler, tester: ElementTester, url: str) -> Pa
         title="",
         status=TestStatus.PASSED
     )
+    page_test.module = get_module_name(url)
     
     # Clear previous errors
     crawler.clear_errors()
@@ -152,6 +168,7 @@ def test_page(page, crawler: PageCrawler, tester: ElementTester, url: str) -> Pa
                     )
                     test_result.explanation_title = explanation["title"]
                     test_result.explanation_text = explanation["explanation"]
+                    test_result.simple_explanation = explanation.get("simple_explanation", "")
                     test_result.suggestion = explanation["suggestion"]
                     test_result.severity = explanation["severity"]
                 
@@ -161,6 +178,10 @@ def test_page(page, crawler: PageCrawler, tester: ElementTester, url: str) -> Pa
                     page_test.status = TestStatus.FAILED
             except Exception as e:
                 print_status(f"  Error testing element: {str(e)[:50]}", "warning")
+
+        for test_result in page_test.element_tests:
+            if test_result.status == TestStatus.FAILED and not test_result.screenshot_path and config.SCREENSHOT_ON_ERROR:
+                test_result.screenshot_path = tester.take_page_screenshot("element_error")
         
         # Collect errors and add explanations
         network_errors, console_errors = crawler.get_collected_errors()
@@ -170,6 +191,7 @@ def test_page(page, crawler: PageCrawler, tester: ElementTester, url: str) -> Pa
             explanation = get_network_error_explanation(error.status_code, error.url)
             error.explanation_title = explanation["title"]
             error.explanation_text = explanation["explanation"]
+            error.simple_explanation = explanation.get("simple_explanation", "")
             error.suggestion = explanation["suggestion"]
             error.severity = explanation["severity"]
         
@@ -178,13 +200,22 @@ def test_page(page, crawler: PageCrawler, tester: ElementTester, url: str) -> Pa
             explanation = get_console_error_explanation(error.message, error.error_type)
             error.explanation_title = explanation["title"]
             error.explanation_text = explanation["explanation"]
+            error.simple_explanation = explanation.get("simple_explanation", "")
             error.suggestion = explanation["suggestion"]
             error.severity = explanation["severity"]
         
         page_test.network_errors = network_errors
         page_test.console_errors = console_errors
-        
+
         if network_errors or console_errors:
+            if config.SCREENSHOT_ON_ERROR:
+                page_error_screenshot = tester.take_page_screenshot("page_error")
+                for error in network_errors:
+                    if not error.screenshot_path:
+                        error.screenshot_path = page_error_screenshot
+                for error in console_errors:
+                    if not error.screenshot_path:
+                        error.screenshot_path = page_error_screenshot
             if page_test.status != TestStatus.FAILED:
                 page_test.status = TestStatus.WARNING
         
@@ -247,9 +278,30 @@ def run_tests():
         # Start crawling from current page
         base_url = page.url
         # Store tuples of (url, discovered_from, depth)
-        urls_to_test = [(base_url, "Start Page", 0)]
+        urls_to_test = []
         tested_urls = set()
         url_sources = {base_url: ("Start Page", 0)}  # Track where each URL was discovered from
+        crawl_strategy = config.CRAWL_STRATEGY
+
+        modules_to_test = config.MODULES
+        if config.SINGLE_MODULE:
+            if config.SINGLE_MODULE not in config.MODULES:
+                print_status(f"ERROR: SINGLE_MODULE '{config.SINGLE_MODULE}' is not defined in MODULES.", "error")
+                sys.exit(1)
+            modules_to_test = {config.SINGLE_MODULE: config.MODULES[config.SINGLE_MODULE]}
+            crawl_strategy = "dfs"
+
+        if modules_to_test:
+            for module_name, module_urls in modules_to_test.items():
+                for seed_url in module_urls:
+                    normalized = crawler._normalize_url(seed_url)
+                    urls_to_test.append((normalized, f"Module Seed: {module_name}", 0))
+                    url_sources[normalized] = (f"Module Seed: {module_name}", 0)
+
+        normalized_base = crawler._normalize_url(base_url)
+        if normalized_base not in [u[0] for u in urls_to_test]:
+            urls_to_test.insert(0, (normalized_base, "Start Page", 0))
+            url_sources[normalized_base] = ("Start Page", 0)
         
         print_status(f"\n{'='*60}", "highlight")
         print_status("STARTING AUTOMATED TESTS", "highlight")
@@ -258,10 +310,15 @@ def run_tests():
         page_count = 0
         
         while urls_to_test and page_count < config.MAX_PAGES_TO_CRAWL:
-            url, discovered_from, depth = urls_to_test.pop(0)
+            if crawl_strategy == "dfs":
+                url, discovered_from, depth = urls_to_test.pop()
+            else:
+                url, discovered_from, depth = urls_to_test.pop(0)
             
             # Skip if already tested
             if url in tested_urls:
+                continue
+            if depth > config.MAX_DEPTH:
                 continue
             
             tested_urls.add(url)
@@ -286,6 +343,7 @@ def run_tests():
                 title=page_test.title,
                 discovered_from=discovered_from,
                 status=page_test.status,
+                module=page_test.module,
                 links_found=len(page_test.discovered_links)
             )
             session.crawl_path.append(crawl_step)
@@ -308,6 +366,10 @@ def run_tests():
             for link in page_test.discovered_links:
                 if depth >= config.MAX_DEPTH:
                     continue
+                if config.SINGLE_MODULE:
+                    link_module = get_module_name(link)
+                    if link_module != config.SINGLE_MODULE:
+                        continue
                 if link not in tested_urls and link not in [u[0] for u in urls_to_test]:
                     urls_to_test.append((link, url, depth + 1))
                     url_sources[link] = (url, depth + 1)

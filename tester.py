@@ -36,6 +36,10 @@ class ElementTester:
             print(f"Failed to take screenshot: {e}")
             return ""
 
+    def take_page_screenshot(self, name: str) -> str:
+        """Take a screenshot of the current page."""
+        return self._take_screenshot(name)
+
     def _ensure_interactable(self, element) -> bool:
         """Best-effort checks to reduce flaky interactions."""
         try:

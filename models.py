@@ -33,9 +33,11 @@ class NetworkError:
     request_headers: dict = field(default_factory=dict)
     response_headers: dict = field(default_factory=dict)
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+    screenshot_path: str = ""
     # Explanation fields
     explanation_title: str = ""
     explanation_text: str = ""
+    simple_explanation: str = ""
     suggestion: str = ""
     severity: str = "medium"
 
@@ -48,9 +50,11 @@ class ConsoleError:
     source: str = ""
     line_number: int = 0
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+    screenshot_path: str = ""
     # Explanation fields
     explanation_title: str = ""
     explanation_text: str = ""
+    simple_explanation: str = ""
     suggestion: str = ""
     severity: str = "medium"
 
@@ -69,6 +73,7 @@ class ElementTest:
     # Explanation fields
     explanation_title: str = ""
     explanation_text: str = ""
+    simple_explanation: str = ""
     suggestion: str = ""
     severity: str = "medium"
 
@@ -79,6 +84,7 @@ class PageTest:
     url: str
     title: str
     status: TestStatus
+    module: str = "Uncategorized"
     load_time_ms: float = 0
     screenshot_path: str = ""
     network_errors: List[NetworkError] = field(default_factory=list)
@@ -115,6 +121,7 @@ class CrawlPathStep:
     title: str
     discovered_from: str
     status: TestStatus
+    module: str = "Uncategorized"
     links_found: int = 0
 
 

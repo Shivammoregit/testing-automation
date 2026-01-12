@@ -71,6 +71,9 @@ BROWSER_HEADLESS = False
 | `LOGIN_SUCCESS_URL_KEYWORDS` | URL keywords to detect login success | dashboard, home |
 | `POPUP_WAIT_TIMEOUT_MS` | Time to wait for popup after click | 1500 |
 | `IGNORE_NETWORK_ERROR_PATTERNS` | Network error URL patterns to ignore | google-analytics.com, sentry.io |
+| `MODULES` | Module name to seed URLs mapping | See config.py |
+| `SINGLE_MODULE` | Test only one module by name | "" |
+| `CRAWL_STRATEGY` | Crawl order (bfs or dfs) | bfs |
 
 ## 🚀 Usage
 
@@ -80,6 +83,16 @@ BROWSER_HEADLESS = False
    ```bash
    python main.py
    ```
+
+### Smoke Test (Homepage Only)
+Runs a quick check that the homepage loads without console errors:
+```bash
+python smoke_test.py
+```
+You can also pass a URL:
+```bash
+python smoke_test.py https://devapp.petyosa.com/
+```
 
 3. **Login manually** when the browser opens:
    - The browser will open your website/login page
@@ -153,6 +166,16 @@ EXCLUDED_ELEMENT_SELECTORS = [
     ".delete-btn",
     "#dangerous-action",
 ]
+```
+
+## Module-wise Testing
+
+Define modules in `config.py` to seed crawling and group results in the report:
+```python
+MODULES = {
+    "Vet Appointment": ["https://devapp.petyosa.com/book-appointment"],
+    "GroomUp": ["https://devapp.petyosa.com/grooming"],
+}
 ```
 
 ## 🐛 Troubleshooting

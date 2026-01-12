@@ -4,24 +4,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Automated Test Report - {{ session.website_url }}</title>
+    <title>Test Report - {{ session.website_url }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #0f0f23;
-            --bg-secondary: #1a1a2e;
-            --bg-tertiary: #16213e;
-            --text-primary: #e4e4e7;
-            --text-secondary: #a1a1aa;
-            --accent: #8b5cf6;
-            --accent-light: #a78bfa;
+            --bg-dark: #000000;
+            --bg-card: #0a0a0a;
+            --bg-card-hover: #111111;
+            --bg-elevated: #151515;
+            --accent: #BAFA44;
+            --accent-dim: rgba(186, 250, 68, 0.15);
+            --accent-glow: rgba(186, 250, 68, 0.4);
+            --text-white: #ffffff;
+            --text-gray: #888888;
+            --text-muted: #555555;
             --success: #22c55e;
             --warning: #f59e0b;
             --error: #ef4444;
-            --border: #27272a;
-            --critical: #dc2626;
-            --high: #ea580c;
-            --medium: #ca8a04;
-            --low: #65a30d;
+            --border: #222222;
         }
 
         * {
@@ -31,343 +31,791 @@
         }
 
         body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-white);
             line-height: 1.6;
+            min-height: 100vh;
         }
 
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 2rem;
+        /* Glowing background effect */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 20%, rgba(186, 250, 68, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 70% 80%, rgba(186, 250, 68, 0.05) 0%, transparent 40%);
+            pointer-events: none;
+            z-index: -1;
         }
 
-        header {
-            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 2rem;
-            margin-bottom: 2rem;
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 280px;
+            height: 100vh;
+            background: linear-gradient(180deg, #080808 0%, #000000 100%);
+            border-right: 1px solid var(--border);
+            z-index: 100;
+            overflow-y: auto;
+            transform: translateX(-100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        header h1 {
-            font-size: 2rem;
-            background: linear-gradient(135deg, var(--accent-light), var(--accent));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+        .sidebar.open {
+            transform: translateX(0);
         }
 
-        .meta {
-            color: var(--text-secondary);
+        .sidebar-brand {
+            padding: 2rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sidebar-brand h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--accent);
+            letter-spacing: -0.5px;
+        }
+
+        .sidebar-brand p {
+            color: var(--text-gray);
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+        }
+
+        .sidebar-nav {
+            padding: 1rem 0;
+        }
+
+        .nav-section {
+            padding: 0.5rem 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .nav-section-title {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.875rem 1.5rem;
+            color: var(--text-gray);
+            text-decoration: none;
             font-size: 0.9rem;
-            margin-top: 0.5rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            border-left: 2px solid transparent;
         }
 
-        .summary-grid {
+        .nav-link:hover {
+            color: var(--text-white);
+            background: var(--accent-dim);
+            border-left-color: var(--accent);
+        }
+
+        .nav-link.active {
+            color: var(--accent);
+            background: var(--accent-dim);
+            border-left-color: var(--accent);
+        }
+
+        .module-nav-link {
+            padding: 0.625rem 1.5rem 0.625rem 2.5rem;
+            font-size: 0.85rem;
+        }
+
+        .module-nav-link .count {
+            margin-left: auto;
+            background: var(--bg-elevated);
+            padding: 0.125rem 0.5rem;
+            border-radius: 10px;
+            font-size: 0.7rem;
+        }
+
+        .module-nav-link .count.has-errors {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--error);
+        }
+
+        /* Menu Toggle */
+        .menu-toggle {
+            position: fixed;
+            top: 1.25rem;
+            left: 1.25rem;
+            z-index: 101;
+            width: 48px;
+            height: 48px;
+            background: var(--accent);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            box-shadow: 0 0 30px var(--accent-glow);
+            transition: all 0.3s;
+        }
+
+        .menu-toggle:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 40px var(--accent-glow);
+        }
+
+        .menu-toggle span {
+            display: block;
+            width: 20px;
+            height: 2px;
+            background: #000;
+            transition: all 0.3s;
+        }
+
+        .menu-toggle.active span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+
+        .menu-toggle.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .menu-toggle.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(5px, -5px);
+        }
+
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(4px);
+            z-index: 99;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+
+        .overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Main Content */
+        .main {
+            padding: 2rem;
+            padding-left: 5rem;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 768px) {
+            .main {
+                padding: 1rem;
+                padding-top: 5rem;
+            }
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-elevated) 100%);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, var(--accent-dim) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent);
+            letter-spacing: -1px;
+            position: relative;
+        }
+
+        .header-meta {
+            display: flex;
+            gap: 2rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .header-meta-item {
+            color: var(--text-gray);
+            font-size: 0.875rem;
+        }
+
+        .header-meta-item strong {
+            color: var(--text-white);
+            font-weight: 500;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
             gap: 1rem;
             margin-bottom: 2rem;
         }
 
-        .summary-card {
-            background: var(--bg-secondary);
+        .stat-card {
+            background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 16px;
             padding: 1.5rem;
             text-align: center;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
         }
 
-        .summary-card .value {
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--accent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent);
+        }
+
+        .stat-card:hover::before {
+            opacity: 1;
+        }
+
+        .stat-value {
             font-size: 2.5rem;
             font-weight: 700;
-        }
-
-        .summary-card .label {
-            color: var(--text-secondary);
-            font-size: 0.85rem;
-            text-transform: uppercase;
-        }
-
-        .summary-card.success .value {
-            color: var(--success);
-        }
-
-        .summary-card.warning .value {
-            color: var(--warning);
-        }
-
-        .summary-card.error .value {
-            color: var(--error);
-        }
-
-        .summary-card.info .value {
             color: var(--accent);
         }
 
-        .section {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            margin-bottom: 1.5rem;
+        .stat-value.success {
+            color: var(--success);
         }
 
-        .section-header {
-            background: var(--bg-tertiary);
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid var(--border);
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .stat-value.warning {
+            color: var(--warning);
         }
 
-        .section-header h2 {
-            font-size: 1.1rem;
+        .stat-value.error {
+            color: var(--error);
         }
 
-        .section-content {
-            padding: 1.5rem;
-        }
-
-        /* Crawl Path Visualization */
-        .crawl-path {
-            padding: 1rem 0;
-        }
-
-        .path-step {
-            display: flex;
-            align-items: flex-start;
-            margin-bottom: 0.5rem;
-            position: relative;
-        }
-
-        .path-connector {
-            width: 40px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-right: 1rem;
-        }
-
-        .path-number {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: var(--accent);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            font-size: 0.85rem;
-        }
-
-        .path-number.passed {
-            background: var(--success);
-        }
-
-        .path-number.warning {
-            background: var(--warning);
-        }
-
-        .path-number.failed {
-            background: var(--error);
-        }
-
-        .path-line {
-            width: 2px;
-            height: 40px;
-            background: var(--border);
-            margin-top: 4px;
-        }
-
-        .path-step:last-child .path-line {
-            display: none;
-        }
-
-        .path-info {
-            flex: 1;
-            background: var(--bg-tertiary);
-            border-radius: 8px;
-            padding: 0.75rem 1rem;
-        }
-
-        .path-url {
-            font-family: monospace;
-            font-size: 0.9rem;
-            color: var(--accent-light);
-            word-break: break-all;
-        }
-
-        .path-meta {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            margin-top: 0.25rem;
-        }
-
-        .path-from {
-            color: var(--text-secondary);
+        .stat-label {
+            color: var(--text-gray);
             font-size: 0.75rem;
-        }
-
-        .path-from strong {
-            color: var(--text-primary);
-        }
-
-        /* Error explanations */
-        .explanation-box {
-            background: rgba(139, 92, 246, 0.1);
-            border: 1px solid rgba(139, 92, 246, 0.3);
-            border-radius: 8px;
-            padding: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
             margin-top: 0.5rem;
         }
 
-        .explanation-title {
+        /* Health Bar */
+        .health-section {
+            margin-bottom: 2rem;
+        }
+
+        .health-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .health-title {
+            font-size: 0.875rem;
+            color: var(--text-gray);
+            font-weight: 500;
+        }
+
+        .health-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .health-value.good {
+            color: var(--success);
+        }
+
+        .health-value.medium {
+            color: var(--warning);
+        }
+
+        .health-value.bad {
+            color: var(--error);
+        }
+
+        .health-bar {
+            height: 8px;
+            background: var(--bg-elevated);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .health-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 1s ease-out;
+            background: linear-gradient(90deg, var(--accent), #d4ff70);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .health-fill.warning {
+            background: linear-gradient(90deg, var(--warning), #fbbf24);
+        }
+
+        .health-fill.error {
+            background: linear-gradient(90deg, var(--error), #f87171);
+        }
+
+        /* Guide Section */
+        .guide {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .guide h2 {
+            font-size: 1rem;
+            color: var(--accent);
             font-weight: 600;
-            color: var(--accent-light);
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.75rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
 
-        .explanation-text {
-            font-size: 0.9rem;
-            margin-bottom: 0.5rem;
+        .guide p {
+            color: var(--text-gray);
+            font-size: 0.875rem;
+            line-height: 1.7;
         }
 
-        .suggestion {
-            background: rgba(34, 197, 94, 0.1);
-            border-left: 3px solid var(--success);
-            padding: 0.5rem 0.75rem;
-            font-size: 0.85rem;
-            margin-top: 0.5rem;
+        .guide-legend {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
         }
 
-        .suggestion-label {
-            color: var(--success);
-            font-weight: 600;
-            font-size: 0.75rem;
-            text-transform: uppercase;
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
         }
 
-        .severity-badge {
-            padding: 0.15rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            text-transform: uppercase;
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
         }
 
-        .severity-critical {
-            background: rgba(220, 38, 38, 0.2);
-            color: var(--critical);
+        .legend-dot.success {
+            background: var(--success);
+            box-shadow: 0 0 10px var(--success);
         }
 
-        .severity-high {
-            background: rgba(234, 88, 12, 0.2);
-            color: var(--high);
+        .legend-dot.warning {
+            background: var(--warning);
+            box-shadow: 0 0 10px var(--warning);
         }
 
-        .severity-medium {
-            background: rgba(202, 138, 4, 0.2);
-            color: var(--medium);
+        .legend-dot.error {
+            background: var(--error);
+            box-shadow: 0 0 10px var(--error);
         }
 
-        .severity-low {
-            background: rgba(101, 163, 13, 0.2);
-            color: var(--low);
-        }
-
-        .page-result {
-            background: var(--bg-tertiary);
+        /* Section */
+        .section {
+            background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 12px;
-            margin-bottom: 1rem;
+            border-radius: 20px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
         }
 
-        .page-header {
-            padding: 1rem 1.5rem;
+        .section-header {
+            padding: 1.25rem 1.5rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
             cursor: pointer;
+            transition: background 0.2s;
+            border-bottom: 1px solid transparent;
+        }
+
+        .section-header:hover {
+            background: var(--bg-elevated);
+        }
+
+        .section-header.expanded {
+            border-bottom-color: var(--border);
+        }
+
+        .section-title {
+            font-size: 1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .section-title .icon {
+            font-size: 1.25rem;
+        }
+
+        .section-badge {
+            background: var(--accent);
+            color: #000;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .section-toggle {
+            color: var(--text-muted);
+            transition: transform 0.3s;
+        }
+
+        .section-toggle.rotated {
+            transform: rotate(180deg);
+        }
+
+        .section-content {
+            padding: 1.5rem;
+            display: none;
+        }
+
+        .section-content.show {
+            display: block;
+        }
+
+        /* Module Grid */
+        .module-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .module-card {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .module-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .module-card.has-errors {
+            border-left: 3px solid var(--error);
+        }
+
+        .module-card.no-errors {
+            border-left: 3px solid var(--success);
+        }
+
+        .module-card h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-white);
+            margin-bottom: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .module-status {
+            padding: 0.2rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .module-status.pass {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--success);
+        }
+
+        .module-status.fail {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--error);
+        }
+
+        .module-stats {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .module-stat {
+            font-size: 0.8rem;
+            color: var(--text-gray);
+        }
+
+        .module-stat span {
+            color: var(--text-white);
+            font-weight: 600;
+        }
+
+        /* Filters & Search */
+        .toolbar {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-gray);
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover {
+            border-color: var(--accent);
+            color: var(--text-white);
+        }
+
+        .filter-btn.active {
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 0.625rem 1rem;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-white);
+            font-size: 0.875rem;
+        }
+
+        .search-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .action-btn {
+            padding: 0.5rem 1rem;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-gray);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+        }
+
+        /* Page Result */
+        .page-result {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .page-result:hover {
+            border-color: rgba(186, 250, 68, 0.3);
+        }
+
+        .page-header {
+            padding: 1rem 1.25rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            cursor: pointer;
+            gap: 1rem;
+        }
+
+        .page-info {
+            flex: 1;
+            min-width: 0;
         }
 
         .page-url {
-            font-family: monospace;
-            font-size: 0.9rem;
-            color: var(--accent-light);
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.85rem;
+            color: var(--accent);
             word-break: break-all;
         }
 
         .page-title {
-            color: var(--text-secondary);
-            font-size: 0.85rem;
-        }
-
-        .page-source {
-            color: var(--text-secondary);
-            font-size: 0.75rem;
+            color: var(--text-gray);
+            font-size: 0.8rem;
             margin-top: 0.25rem;
         }
 
-        .page-source strong {
-            color: var(--accent-light);
+        .page-meta {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .page-meta-item {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .page-meta-item strong {
+            color: var(--text-gray);
+        }
+
+        .page-badge {
+            display: inline-block;
+            padding: 0.125rem 0.5rem;
+            background: var(--bg-card);
+            border-radius: 6px;
+            font-size: 0.7rem;
+            color: var(--accent);
+            margin-left: 0.5rem;
         }
 
         .status-badge {
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-            font-size: 0.8rem;
+            padding: 0.375rem 0.875rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
             font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
         }
 
         .status-passed {
-            background: rgba(34, 197, 94, 0.2);
+            background: rgba(34, 197, 94, 0.15);
             color: var(--success);
         }
 
         .status-failed {
-            background: rgba(239, 68, 68, 0.2);
+            background: rgba(239, 68, 68, 0.15);
             color: var(--error);
         }
 
         .status-warning {
-            background: rgba(245, 158, 11, 0.2);
+            background: rgba(245, 158, 11, 0.15);
             color: var(--warning);
         }
 
-        .status-skipped {
-            background: rgba(161, 161, 170, 0.2);
-            color: var(--text-secondary);
-        }
-
         .page-details {
-            padding: 1rem 1.5rem;
-            display: none;
+            padding: 1.25rem;
             border-top: 1px solid var(--border);
+            display: none;
+            background: var(--bg-card);
         }
 
-        .page-details.active {
+        .page-details.show {
             display: block;
         }
 
-        .error-item {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            border-radius: 8px;
-            padding: 1rem;
+        /* Error Items */
+        .error-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .error-group-title {
+            font-size: 0.85rem;
+            font-weight: 600;
             margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .error-group-title.network {
+            color: var(--warning);
+        }
+
+        .error-group-title.console {
+            color: var(--error);
+        }
+
+        .error-item {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
         }
 
         .error-item.network {
-            background: rgba(245, 158, 11, 0.1);
-            border-color: rgba(245, 158, 11, 0.3);
+            border-left: 3px solid var(--warning);
+        }
+
+        .error-item.console {
+            border-left: 3px solid var(--error);
+        }
+
+        .error-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
         }
 
         .error-type {
@@ -381,165 +829,533 @@
             color: var(--warning);
         }
 
+        .severity-badge {
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .severity-critical {
+            background: rgba(220, 38, 38, 0.2);
+            color: #dc2626;
+        }
+
+        .severity-high {
+            background: rgba(234, 88, 12, 0.2);
+            color: #ea580c;
+        }
+
+        .severity-medium {
+            background: rgba(202, 138, 4, 0.2);
+            color: #ca8a04;
+        }
+
+        .severity-low {
+            background: rgba(101, 163, 13, 0.2);
+            color: #65a30d;
+        }
+
         .error-message {
-            font-family: monospace;
-            font-size: 0.85rem;
-            margin-top: 0.5rem;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.8rem;
+            color: var(--text-gray);
             word-break: break-all;
         }
 
+        .explanation-box {
+            background: rgba(186, 250, 68, 0.05);
+            border: 1px solid rgba(186, 250, 68, 0.2);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 0.75rem;
+        }
+
+        .explanation-title {
+            font-weight: 600;
+            color: var(--accent);
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .explanation-text {
+            font-size: 0.8rem;
+            color: var(--text-gray);
+            margin-bottom: 0.5rem;
+        }
+
+        .suggestion {
+            background: rgba(34, 197, 94, 0.1);
+            border-left: 3px solid var(--success);
+            padding: 0.5rem 0.75rem;
+            margin-top: 0.5rem;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .suggestion-label {
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--success);
+            margin-bottom: 0.25rem;
+        }
+
+        .suggestion-text {
+            font-size: 0.8rem;
+            color: var(--text-gray);
+        }
+
+        .screenshot {
+            margin-top: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .screenshot img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        /* Element Tests */
         .element-test {
             display: flex;
             align-items: flex-start;
             padding: 0.75rem;
             border-bottom: 1px solid var(--border);
+            gap: 1rem;
+        }
+
+        .element-test:last-child {
+            border-bottom: none;
         }
 
         .element-type {
-            background: var(--bg-primary);
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            min-width: 80px;
+            background: var(--bg-card);
+            padding: 0.25rem 0.625rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: var(--accent);
+            min-width: 70px;
             text-align: center;
-            margin-right: 1rem;
         }
 
         .element-info {
             flex: 1;
+            min-width: 0;
+        }
+
+        .element-text {
+            font-size: 0.85rem;
+            color: var(--text-white);
         }
 
         .element-selector {
-            font-family: monospace;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+            word-break: break-all;
+        }
+
+        .element-error {
             font-size: 0.8rem;
-            color: var(--text-secondary);
+            color: var(--error);
+            margin-top: 0.25rem;
         }
 
-        .screenshot-link {
-            color: var(--accent);
-            text-decoration: none;
-            margin-left: 0.5rem;
+        /* Crawl Path */
+        .crawl-list {
+            max-height: 500px;
+            overflow-y: auto;
         }
 
-        .stats-bar {
+        .crawl-step {
             display: flex;
+            align-items: flex-start;
             gap: 1rem;
-            margin-top: 0.5rem;
-            font-size: 0.8rem;
-            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
         }
 
-        .filters {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .filter-btn {
-            padding: 0.5rem 1rem;
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            color: var(--text-primary);
-            cursor: pointer;
-        }
-
-        .filter-btn:hover,
-        .filter-btn.active {
+        .crawl-number {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
             background: var(--accent);
-            border-color: var(--accent);
+            color: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .crawl-number.passed {
+            background: var(--success);
+            color: #fff;
+        }
+
+        .crawl-number.warning {
+            background: var(--warning);
+            color: #fff;
+        }
+
+        .crawl-number.failed {
+            background: var(--error);
+            color: #fff;
+        }
+
+        .crawl-line {
+            width: 2px;
+            height: 30px;
+            background: var(--border);
+            margin: 4px auto 0;
+        }
+
+        .crawl-step:last-child .crawl-line {
+            display: none;
+        }
+
+        .crawl-info {
+            flex: 1;
+            background: var(--bg-elevated);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+        }
+
+        .crawl-url {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.85rem;
+            color: var(--accent);
+            word-break: break-all;
+        }
+
+        .crawl-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        /* Module Errors */
+        .module-error-section {
+            margin-bottom: 2rem;
+        }
+
+        .module-error-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .module-error-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .module-error-group h4 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .module-error-group h4.network {
+            color: var(--warning);
+        }
+
+        .module-error-group h4.console {
+            color: var(--error);
+        }
+
+        .module-error-group h4.element {
+            color: var(--error);
+        }
+
+        .module-error-group p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+        }
+
+        .success-msg {
+            color: var(--success);
+            font-size: 0.85rem;
         }
 
         footer {
             text-align: center;
-            padding: 2rem;
-            color: var(--text-secondary);
-            font-size: 0.85rem;
+            padding: 3rem 2rem;
+            color: var(--text-muted);
+            font-size: 0.8rem;
         }
 
-        .toggle-icon {
-            transition: transform 0.3s;
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
         }
 
-        .toggle-icon.rotated {
-            transform: rotate(180deg);
+        /* Animations */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
-        .depth-badge {
-            background: var(--bg-primary);
-            padding: 0.15rem 0.5rem;
+        .fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
             border-radius: 4px;
-            font-size: 0.7rem;
-            margin-left: 0.5rem;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
         }
     </style>
 </head>
 
 <body>
-    <div class="container">
-        <header>
-            <h1>Automated Test Report</h1>
-            <div class="meta">
-                <strong>Website:</strong> {{ session.website_url }}<br>
-                <strong>Test Run:</strong> {{ session.start_time }} | <strong>Duration:</strong> {{
-                "%.1f"|format(session.duration_seconds) }}s
+    <button class="menu-toggle" onclick="toggleMenu()"><span></span><span></span><span></span></button>
+    <div class="overlay" onclick="closeMenu()"></div>
+
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <h1>📊 Test Report</h1>
+            <p>{{ session.website_url }}</p>
+        </div>
+        <div class="sidebar-nav">
+            <div class="nav-section">
+                <div class="nav-section-title">Navigation</div>
+            </div>
+            <a href="#summary" class="nav-link" onclick="closeMenu()">📈 Summary</a>
+            <a href="#modules" class="nav-link" onclick="closeMenu()">📦 Modules</a>
+            <a href="#errors" class="nav-link" onclick="closeMenu()">⚠️ Errors by Module</a>
+            <a href="#results" class="nav-link" onclick="closeMenu()">📄 Page Results</a>
+            <a href="#crawl" class="nav-link" onclick="closeMenu()">🔗 Crawl Path</a>
+            {% if module_summary %}
+            <div class="nav-section">
+                <div class="nav-section-title">Quick Filter</div>
+            </div>
+            {% for name, stats in module_summary|dictsort %}
+            <a href="#" class="nav-link module-nav-link"
+                onclick="filterModule('{{ name }}'); closeMenu(); return false;">
+                {{ name }} <span class="count {{ 'has-errors' if stats.errors > 0 else '' }}">{{ stats.errors }}</span>
+            </a>
+            {% endfor %}
+            <a href="#" class="nav-link module-nav-link" onclick="filterModule('all'); closeMenu(); return false;">🔄
+                Show All</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <main class="main">
+        <header class="header fade-in">
+            <h1>Test Report</h1>
+            <div class="header-meta">
+                <div class="header-meta-item"><strong>Website:</strong> {{ session.website_url }}</div>
+                <div class="header-meta-item"><strong>Run:</strong> {{ session.start_time }}</div>
+                <div class="header-meta-item"><strong>Duration:</strong> {{ "%.1f"|format(session.duration_seconds) }}s
+                </div>
             </div>
         </header>
 
-        <div class="summary-grid">
-            <div class="summary-card info">
-                <div class="value">{{ session.total_pages }}</div>
-                <div class="label">Pages Tested</div>
-            </div>
-            <div class="summary-card {{ 'success' if session.pages_with_errors == 0 else 'error' }}">
-                <div class="value">{{ session.pages_with_errors }}</div>
-                <div class="label">Pages with Errors</div>
-            </div>
-            <div class="summary-card {{ 'success' if session.total_network_errors == 0 else 'warning' }}">
-                <div class="value">{{ session.total_network_errors }}</div>
-                <div class="label">Network Errors</div>
-            </div>
-            <div class="summary-card {{ 'success' if session.total_console_errors == 0 else 'warning' }}">
-                <div class="value">{{ session.total_console_errors }}</div>
-                <div class="label">Console Errors</div>
-            </div>
-            <div class="summary-card info">
-                <div class="value">{{ session.total_element_tests }}</div>
-                <div class="label">Elements Tested</div>
-            </div>
-            <div class="summary-card {{ 'success' if session.total_element_failures == 0 else 'error' }}">
-                <div class="value">{{ session.total_element_failures }}</div>
-                <div class="label">Element Failures</div>
+        <div class="guide fade-in" id="summary">
+            <h2>📖 Understanding This Report</h2>
+            <p>This report shows automated test results for your website. We visited each page, checked for loading
+                errors, JavaScript issues, and tested interactive elements like buttons and links.</p>
+            <div class="guide-legend">
+                <div class="legend-item"><span class="legend-dot success"></span> Passed - No issues</div>
+                <div class="legend-item"><span class="legend-dot warning"></span> Warning - Minor issues</div>
+                <div class="legend-item"><span class="legend-dot error"></span> Error - Needs attention</div>
             </div>
         </div>
 
-        <!-- Crawl Path Section -->
-        <div class="section">
-            <div class="section-header" onclick="toggleSection(this)">
-                <h2>Crawl Path (Page Discovery Order)</h2>
-                <span class="toggle-icon">&#9660;</span>
+        <div class="stats-grid fade-in">
+            <div class="stat-card">
+                <div class="stat-value">{{ session.total_pages }}</div>
+                <div class="stat-label">Pages Tested</div>
             </div>
-            <div class="section-content" style="display: none;">
-                <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.9rem;">
-                    This shows the order in which pages were discovered and tested. Each page shows where it was found
-                    from.
-                </p>
-                <div class="crawl-path">
-                    {% for step in session.crawl_path %}
-                    <div class="path-step">
-                        <div class="path-connector">
-                            <div class="path-number {{ step.status.value }}">{{ step.step_number }}</div>
-                            <div class="path-line"></div>
+            <div class="stat-card">
+                <div class="stat-value {{ 'success' if session.pages_with_errors == 0 else 'error' }}">{{
+                    session.pages_with_errors }}</div>
+                <div class="stat-label">With Errors</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value {{ 'success' if session.total_network_errors == 0 else 'warning' }}">{{
+                    session.total_network_errors }}</div>
+                <div class="stat-label">Network Errors</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value {{ 'success' if session.total_console_errors == 0 else 'warning' }}">{{
+                    session.total_console_errors }}</div>
+                <div class="stat-label">Console Errors</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ session.total_element_tests }}</div>
+                <div class="stat-label">Elements Tested</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value {{ 'success' if session.total_element_failures == 0 else 'error' }}">{{
+                    session.total_element_failures }}</div>
+                <div class="stat-label">Element Failures</div>
+            </div>
+        </div>
+
+        {% set rate = ((session.total_pages - session.pages_with_errors) / session.total_pages * 100) if
+        session.total_pages > 0 else 100 %}
+        <div class="health-section fade-in">
+            <div class="health-header">
+                <span class="health-title">Overall Health Score</span>
+                <span class="health-value {{ 'good' if rate >= 80 else ('medium' if rate >= 50 else 'bad') }}">{{
+                    "%.0f"|format(rate) }}%</span>
+            </div>
+            <div class="health-bar">
+                <div class="health-fill {{ '' if rate >= 80 else ('warning' if rate >= 50 else 'error') }}"
+                    style="width: {{ rate }}%"></div>
+            </div>
+        </div>
+
+        {% if module_summary %}
+        <div class="section fade-in" id="modules">
+            <div class="section-header expanded" onclick="toggleSection(this)">
+                <div class="section-title"><span class="icon">📦</span> Module Summary <span class="section-badge">{{
+                        module_summary|length }}</span></div>
+                <span class="section-toggle rotated">▼</span>
+            </div>
+            <div class="section-content show">
+                <div class="module-grid">
+                    {% for name, stats in module_summary|dictsort %}
+                    <div class="module-card {{ 'has-errors' if stats.errors > 0 else 'no-errors' }}"
+                        onclick="filterModule('{{ name }}')">
+                        <h3>{{ name }} <span class="module-status {{ 'fail' if stats.errors > 0 else 'pass' }}">{{
+                                'ISSUES' if stats.errors > 0 else 'OK' }}</span></h3>
+                        <div class="module-stats">
+                            <div class="module-stat">Pages: <span>{{ stats.pages }}</span></div>
+                            <div class="module-stat">Errors: <span>{{ stats.errors }}</span></div>
+                            <div class="module-stat">Network: <span>{{ stats.network_errors }}</span></div>
+                            <div class="module-stat">Console: <span>{{ stats.console_errors }}</span></div>
                         </div>
-                        <div class="path-info">
-                            <div class="path-url">{{ step.url }}</div>
-                            <div class="path-meta">
-                                <strong>{{ step.title or 'No title' }}</strong> | Found {{ step.links_found }} links
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if module_errors %}
+        <div class="section fade-in" id="errors">
+            <div class="section-header" onclick="toggleSection(this)">
+                <div class="section-title"><span class="icon">⚠️</span> Errors by Module</div>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                {% for name, errs in module_errors|dictsort %}
+                <div class="module-error-section">
+                    <div class="module-error-title">{{ name }}</div>
+                    <div class="module-error-group">
+                        <h4 class="network">🌐 Network Errors ({{ errs.network|length }})</h4>
+                        <p>Failed API calls or resources that couldn't load.</p>
+                        {% if errs.network %}{% for e in errs.network %}
+                        <div class="error-item network">
+                            <div class="error-header"><span class="error-type">{{ e.method }} {{ e.status_code }}</span>
                             </div>
-                            <div class="path-from">
-                                Discovered from: <strong>{{ step.discovered_from }}</strong>
+                            <div class="error-message">{{ e.url }}</div>
+                            {% if e.explanation_title %}
+                            <div class="explanation-box">
+                                <div class="explanation-title">💡 {{ e.explanation_title }}</div>
+                                {% if e.simple_explanation %}<div class="explanation-text"><strong>Simple:</strong> {{
+                                    e.simple_explanation }}</div>{% endif %}
+                                <div class="suggestion">
+                                    <div class="suggestion-label">Fix</div>
+                                    <div class="suggestion-text">{{ e.suggestion }}</div>
+                                </div>
                             </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}{% else %}<p class="success-msg">✓ No network errors</p>{% endif %}
+                    </div>
+                    <div class="module-error-group">
+                        <h4 class="console">⚡ Console Errors ({{ errs.console|length }})</h4>
+                        <p>JavaScript errors that may break functionality.</p>
+                        {% if errs.console %}{% for e in errs.console %}
+                        <div class="error-item console">
+                            <div class="error-header"><span class="error-type">{{ e.error_type }}</span></div>
+                            <div class="error-message">{{ e.message[:300] }}</div>
+                            {% if e.explanation_title %}
+                            <div class="explanation-box">
+                                <div class="explanation-title">💡 {{ e.explanation_title }}</div>
+                                <div class="suggestion">
+                                    <div class="suggestion-label">Fix</div>
+                                    <div class="suggestion-text">{{ e.suggestion }}</div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}{% else %}<p class="success-msg">✓ No console errors</p>{% endif %}
+                    </div>
+                    <div class="module-error-group">
+                        <h4 class="element">🔘 Element Errors ({{ errs.element|length }})</h4>
+                        <p>Buttons, links, or forms that didn't work.</p>
+                        {% if errs.element %}{% for e in errs.element %}
+                        <div class="error-item console">
+                            <div class="error-type">{{ e.element_type }}</div>
+                            <div class="error-message">{{ e.element_text }} — {{ e.error_message[:150] if
+                                e.error_message else '' }}</div>
+                        </div>
+                        {% endfor %}{% else %}<p class="success-msg">✓ No element errors</p>{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="section fade-in" id="crawl">
+            <div class="section-header" onclick="toggleSection(this)">
+                <div class="section-title"><span class="icon">🔗</span> Crawl Path <span class="section-badge">{{
+                        session.crawl_path|length }}</span></div>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.85rem;">Shows how pages were
+                    discovered by following links.</p>
+                <div class="crawl-list">
+                    {% for s in session.crawl_path %}
+                    <div class="crawl-step">
+                        <div>
+                            <div class="crawl-number {{ s.status.value }}">{{ s.step_number }}</div>
+                            <div class="crawl-line"></div>
+                        </div>
+                        <div class="crawl-info">
+                            <div class="crawl-url">{{ s.url }}</div>
+                            <div class="crawl-meta">{{ s.title or 'No title' }} · {{ s.links_found }} links · from {{
+                                s.discovered_from }}</div>
                         </div>
                     </div>
                     {% endfor %}
@@ -547,125 +1363,117 @@
             </div>
         </div>
 
-        <!-- Page Results Section -->
-        <div class="section">
-            <div class="section-header" onclick="toggleSection(this)">
-                <h2>Page Results</h2>
-                <span class="toggle-icon">&#9660;</span>
+        <div class="section fade-in" id="results">
+            <div class="section-header expanded" onclick="toggleSection(this)">
+                <div class="section-title"><span class="icon">📄</span> Page Results <span class="section-badge">{{
+                        session.pages_tested|length }}</span></div>
+                <span class="section-toggle rotated">▼</span>
             </div>
-            <div class="section-content">
-                <div class="filters">
-                    <button class="filter-btn active" data-filter="all">All</button>
-                    <button class="filter-btn" data-filter="errors">With Errors</button>
-                    <button class="filter-btn" data-filter="passed">Passed</button>
+            <div class="section-content show">
+                <div class="toolbar">
+                    <div class="filter-group">
+                        <button class="filter-btn active" data-filter="all">All</button>
+                        <button class="filter-btn" data-filter="errors">With Errors</button>
+                        <button class="filter-btn" data-filter="passed">Passed</button>
+                    </div>
+                    <input type="text" class="search-input" id="search" placeholder="Search URL, title, or module...">
+                    <button class="action-btn" id="expandAll">Expand All</button>
+                    <button class="action-btn" id="collapseAll">Collapse All</button>
                 </div>
 
-                {% for page in session.pages_tested %}
-                <div class="page-result" data-has-errors="{{ 'true' if page.has_errors else 'false' }}">
+                {% if module_summary %}
+                <div class="filter-group" style="margin-bottom: 1rem;">
+                    <button class="filter-btn active" data-module="all">All Modules</button>
+                    {% for name in module_summary|dictsort %}
+                    <button class="filter-btn" data-module="{{ name[0] }}">{{ name[0] }}</button>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% for p in session.pages_tested %}
+                <div class="page-result" data-errors="{{ 'true' if p.has_errors else 'false' }}"
+                    data-module="{{ p.module }}"
+                    data-search="{{ p.url|lower }} {{ p.title|lower }} {{ p.module|lower }}">
                     <div class="page-header" onclick="toggleDetails(this)">
-                        <div>
-                            <div class="page-url">
-                                {{ page.url }}
-                                <span class="depth-badge">Depth: {{ page.crawl_depth }}</span>
+                        <div class="page-info">
+                            <div class="page-url">{{ p.url }}<span class="page-badge">Depth {{ p.crawl_depth }}</span>
                             </div>
-                            <div class="page-title">{{ page.title or 'No title' }}</div>
-                            <div class="page-source">
-                                Discovered from: <strong>{{ page.discovered_from or 'Start Page' }}</strong>
-                            </div>
-                            <div class="stats-bar">
-                                <span>Load: <strong>{{ "%.0f"|format(page.load_time_ms) }}ms</strong></span>
-                                <span>Elements: <strong>{{ page.total_elements_tested }}</strong></span>
+                            <div class="page-title">{{ p.title or 'No title' }}</div>
+                            <div class="page-meta">
+                                <span class="page-meta-item">⏱️ {{ "%.0f"|format(p.load_time_ms) }}ms</span>
+                                <span class="page-meta-item">🔘 {{ p.total_elements_tested }} elements</span>
+                                <span class="page-meta-item">📦 <strong>{{ p.module }}</strong></span>
                             </div>
                         </div>
-                        <span class="status-badge status-{{ page.status.value }}">{{ page.status.value }}</span>
+                        <span class="status-badge status-{{ p.status.value }}">{{ p.status.value }}</span>
                     </div>
                     <div class="page-details">
-                        {% if page.network_errors %}
-                        <h4 style="color: var(--warning); margin-bottom: 0.75rem;">Network Errors ({{
-                            page.network_errors|length }})</h4>
-                        {% for error in page.network_errors %}
-                        <div class="error-item network">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div class="error-type">{{ error.method }} {{ error.status_code }} {{ error.status_text
-                                    }}</div>
-                                <span class="severity-badge severity-{{ error.severity }}">{{ error.severity }}</span>
+                        {% if p.network_errors %}
+                        <div class="error-group">
+                            <div class="error-group-title network">🌐 Network Errors ({{ p.network_errors|length }})
                             </div>
-                            <div class="error-message">{{ error.url }}</div>
-                            {% if error.explanation_title %}
-                            <div class="explanation-box">
-                                <div class="explanation-title">{{ error.explanation_title }}</div>
-                                <div class="explanation-text">{{ error.explanation_text }}</div>
-                                <div class="suggestion">
-                                    <div class="suggestion-label">Suggested Fix</div>
-                                    {{ error.suggestion }}
-                                </div>
-                            </div>
-                            {% endif %}
-                        </div>
-                        {% endfor %}
-                        {% endif %}
-
-                        {% if page.console_errors %}
-                        <h4 style="color: var(--error); margin: 1rem 0 0.75rem;">Console Errors ({{
-                            page.console_errors|length }})</h4>
-                        {% for error in page.console_errors %}
-                        <div class="error-item">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div class="error-type">{{ error.error_type }}</div>
-                                <span class="severity-badge severity-{{ error.severity }}">{{ error.severity }}</span>
-                            </div>
-                            <div class="error-message">{{ error.message[:500] }}</div>
-                            {% if error.explanation_title %}
-                            <div class="explanation-box">
-                                <div class="explanation-title">{{ error.explanation_title }}</div>
-                                <div class="explanation-text">{{ error.explanation_text }}</div>
-                                <div class="suggestion">
-                                    <div class="suggestion-label">Suggested Fix</div>
-                                    {{ error.suggestion }}
-                                </div>
-                            </div>
-                            {% endif %}
-                        </div>
-                        {% endfor %}
-                        {% endif %}
-
-                        {% if page.element_tests %}
-                        <h4 style="margin: 1rem 0 0.75rem;">Element Tests ({{ page.total_elements_tested }})</h4>
-                        {% for test in page.element_tests %}
-                        <div class="element-test">
-                            <span class="element-type">{{ test.element_type }}</span>
-                            <div class="element-info">
-                                <div>{{ test.element_text }}</div>
-                                <div class="element-selector">{{ test.element_selector }}</div>
-                                {% if test.error_message %}
-                                <div style="color: var(--error); font-size: 0.85rem; margin-top: 0.25rem;">{{
-                                    test.error_message[:200] }}</div>
-                                {% endif %}
-                                {% if test.explanation_title and test.status.value == 'failed' %}
-                                <div class="explanation-box" style="margin-top: 0.5rem;">
-                                    <div class="explanation-title">
-                                        {{ test.explanation_title }}
-                                        <span class="severity-badge severity-{{ test.severity }}">{{ test.severity
-                                            }}</span>
+                            {% for e in p.network_errors %}
+                            <div class="error-item network">
+                                <div class="error-header"><span class="error-type">{{ e.method }} {{ e.status_code
+                                        }}</span><span class="severity-badge severity-{{ e.severity }}">{{ e.severity
+                                        }}</span></div>
+                                <div class="error-message">{{ e.url }}</div>
+                                {% if e.explanation_title %}<div class="explanation-box">
+                                    <div class="explanation-title">💡 {{ e.explanation_title }}</div>{% if
+                                    e.simple_explanation %}<div class="explanation-text">{{ e.simple_explanation }}
+                                    </div>{% endif %}<div class="suggestion">
+                                        <div class="suggestion-label">Fix</div>
+                                        <div class="suggestion-text">{{ e.suggestion }}</div>
                                     </div>
-                                    <div class="explanation-text">{{ test.explanation_text }}</div>
+                                </div>{% endif %}
+                                {% if e.screenshot_path %}<div class="screenshot"><img src="{{ e.screenshot_path }}"
+                                        alt="Screenshot"></div>{% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        {% if p.console_errors %}
+                        <div class="error-group">
+                            <div class="error-group-title console">⚡ Console Errors ({{ p.console_errors|length }})
+                            </div>
+                            {% for e in p.console_errors %}
+                            <div class="error-item console">
+                                <div class="error-header"><span class="error-type">{{ e.error_type }}</span><span
+                                        class="severity-badge severity-{{ e.severity }}">{{ e.severity }}</span></div>
+                                <div class="error-message">{{ e.message[:400] }}</div>
+                                {% if e.explanation_title %}<div class="explanation-box">
+                                    <div class="explanation-title">💡 {{ e.explanation_title }}</div>
                                     <div class="suggestion">
-                                        <div class="suggestion-label">Suggested Fix</div>
-                                        {{ test.suggestion }}
+                                        <div class="suggestion-label">Fix</div>
+                                        <div class="suggestion-text">{{ e.suggestion }}</div>
                                     </div>
-                                </div>
-                                {% endif %}
+                                </div>{% endif %}
                             </div>
-                            <span class="status-badge status-{{ test.status.value }}">{{ test.status.value }}</span>
-                            {% if test.screenshot_path %}<a href="{{ test.screenshot_path }}" class="screenshot-link"
-                                target="_blank">[Screenshot]</a>{% endif %}
+                            {% endfor %}
                         </div>
-                        {% endfor %}
                         {% endif %}
 
-                        {% if not page.network_errors and not page.console_errors and page.elements_failed == 0 %}
-                        <p style="color: var(--success); text-align: center; padding: 1rem;">No errors detected on this
-                            page</p>
+                        {% if p.element_tests %}
+                        <div class="error-group">
+                            <div class="error-group-title">🔘 Element Tests ({{ p.total_elements_tested }})</div>
+                            {% for t in p.element_tests %}
+                            <div class="element-test">
+                                <span class="element-type">{{ t.element_type }}</span>
+                                <div class="element-info">
+                                    <div class="element-text">{{ t.element_text }}</div>
+                                    <div class="element-selector">{{ t.element_selector }}</div>
+                                    {% if t.error_message %}<div class="element-error">{{ t.error_message[:150] }}</div>
+                                    {% endif %}
+                                </div>
+                                <span class="status-badge status-{{ t.status.value }}">{{ t.status.value }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        {% if not p.network_errors and not p.console_errors and p.elements_failed == 0 %}
+                        <p class="success-msg" style="text-align: center; padding: 1rem;">✅ No errors on this page</p>
                         {% endif %}
                     </div>
                 </div>
@@ -673,52 +1481,51 @@
             </div>
         </div>
 
-        <footer>Generated by Automated Website Testing Tool | {{ session.end_time }}</footer>
-    </div>
+        <footer>Generated by <a href="#">Automated Website Testing Tool</a> · {{ session.end_time }}</footer>
+    </main>
 
     <script>
-        function toggleDetails(header) {
-            const details = header.nextElementSibling;
-            details.classList.toggle('active');
-        }
+        const toggleMenu = () => { document.querySelector('.sidebar').classList.toggle('open'); document.querySelector('.overlay').classList.toggle('show'); document.querySelector('.menu-toggle').classList.toggle('active'); };
+        const closeMenu = () => { document.querySelector('.sidebar').classList.remove('open'); document.querySelector('.overlay').classList.remove('show'); document.querySelector('.menu-toggle').classList.remove('active'); };
 
-        function toggleSection(header) {
-            const content = header.nextElementSibling;
-            const icon = header.querySelector('.toggle-icon');
-            if (content.style.display === 'none') {
-                content.style.display = 'block';
-                icon.classList.add('rotated');
-            } else {
-                content.style.display = 'none';
-                icon.classList.remove('rotated');
-            }
+        function toggleSection(h) {
+            const c = h.nextElementSibling, i = h.querySelector('.section-toggle');
+            c.classList.toggle('show'); i.classList.toggle('rotated');
+            h.classList.toggle('expanded');
         }
+        function toggleDetails(h) { h.nextElementSibling.classList.toggle('show'); }
 
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                const filter = btn.dataset.filter;
-                document.querySelectorAll('.page-result').forEach(page => {
-                    const hasErrors = page.dataset.hasErrors === 'true';
-                    if (filter === 'all') {
-                        page.style.display = 'block';
-                    } else if (filter === 'errors') {
-                        page.style.display = hasErrors ? 'block' : 'none';
-                    } else if (filter === 'passed') {
-                        page.style.display = !hasErrors ? 'block' : 'none';
-                    }
-                });
+        let statusFilter = 'all', moduleFilter = 'all', searchTerm = '';
+        function updateFilters() {
+            document.querySelectorAll('.page-result').forEach(p => {
+                const hasErr = p.dataset.errors === 'true', mod = p.dataset.module, search = p.dataset.search;
+                let show = true;
+                if (statusFilter === 'errors') show = hasErr;
+                else if (statusFilter === 'passed') show = !hasErr;
+                if (show && moduleFilter !== 'all') show = mod === moduleFilter;
+                if (show && searchTerm) show = search.includes(searchTerm);
+                p.style.display = show ? 'block' : 'none';
             });
-        });
-
-        // Auto-expand sections with errors
-        document.querySelectorAll('.page-result').forEach(page => {
-            if (page.dataset.hasErrors === 'true') {
-                // Optionally auto-expand pages with errors
-                // page.querySelector('.page-details').classList.add('active');
-            }
-        });
+        }
+        function filterModule(m) {
+            moduleFilter = m;
+            document.querySelectorAll('[data-module]').forEach(b => b.classList.remove('active'));
+            const btn = document.querySelector(`[data-module="${m}"]`);
+            if (btn) btn.classList.add('active');
+            updateFilters();
+            document.getElementById('results')?.scrollIntoView({ behavior: 'smooth' });
+        }
+        document.querySelectorAll('[data-filter]').forEach(b => b.addEventListener('click', () => {
+            document.querySelectorAll('[data-filter]').forEach(x => x.classList.remove('active'));
+            b.classList.add('active'); statusFilter = b.dataset.filter; updateFilters();
+        }));
+        document.querySelectorAll('.filter-group [data-module]').forEach(b => b.addEventListener('click', () => {
+            document.querySelectorAll('.filter-group [data-module]').forEach(x => x.classList.remove('active'));
+            b.classList.add('active'); moduleFilter = b.dataset.module; updateFilters();
+        }));
+        document.getElementById('search')?.addEventListener('input', e => { searchTerm = e.target.value.toLowerCase(); updateFilters(); });
+        document.getElementById('expandAll')?.addEventListener('click', () => document.querySelectorAll('.page-details').forEach(d => d.classList.add('show')));
+        document.getElementById('collapseAll')?.addEventListener('click', () => document.querySelectorAll('.page-details').forEach(d => d.classList.remove('show')));
     </script>
 </body>
 

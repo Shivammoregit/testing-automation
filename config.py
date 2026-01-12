@@ -1,6 +1,27 @@
 """
 Configuration settings for the automated testing tool.
 Update these values according to your testing requirements.
+
+============================================================
+QUICK START - SINGLE MODULE TESTING
+============================================================
+To test a single module only, set SINGLE_MODULE to the module name:
+    SINGLE_MODULE = "PawMatch"      # Test only PawMatch
+    SINGLE_MODULE = "GroomUp"       # Test only GroomUp
+    SINGLE_MODULE = None            # Test ALL modules
+
+Available modules:
+    - Vet Appointment
+    - GroomUp
+    - HomeVaxi
+    - FeedaPaw
+    - PawMatch
+    - ShopYosa
+    - Timeline
+    - Pet BNB
+    - FitYosa
+    - Community
+============================================================
 """
 
 # Website configuration
@@ -8,7 +29,12 @@ WEBSITE_URL = "https://devapp.petyosa.com/"  # Replace with your website URL
 
 # Login configuration
 LOGIN_URL = ""  # Leave empty to use WEBSITE_URL, or specify login page URL
-LOGIN_WAIT_TIME = 120  # Seconds to wait for manual OTP login
+LOGIN_WAIT_TIME = 30  # Seconds to wait for manual OTP login
+
+# ============================================================
+# SINGLE MODULE TESTING (Set to module name or None for all)
+# ============================================================
+SINGLE_MODULE = None  # Examples: "PawMatch", "GroomUp", None (for all)
 
 # Crawling configuration
 MAX_PAGES_TO_CRAWL = 100  # Maximum number of pages to discover and test
@@ -58,6 +84,27 @@ EXCLUDED_ELEMENT_SELECTORS = [
 # Login detection
 LOGIN_SUCCESS_SELECTOR = ""  # CSS selector that indicates login success (optional)
 LOGIN_SUCCESS_URL_KEYWORDS = ["dashboard", "home"]  # URL keywords that indicate login success
+
+# ============================================================
+# MODULE CONFIGURATION
+# Each module has a list of seed URLs to start crawling from
+# ============================================================
+MODULES = {
+    "Vet Appointment": ["https://devapp.petyosa.com/book-appointment"],
+    "GroomUp": ["https://devapp.petyosa.com/grooming"],
+    "HomeVaxi": ["https://devapp.petyosa.com/homevaxi"],
+    "FeedaPaw": ["https://devapp.petyosa.com/feedapaw"],
+    "PawMatch": ["https://devapp.petyosa.com/pawmatch"],
+    "ShopYosa": ["https://devapp.petyosa.com/shopyosa"],
+    "Timeline": ["https://devapp.petyosa.com/timeline-premium"],
+    "Pet BNB": ["https://devapp.petyosa.com/pet-bnb"],
+    "FitYosa": ["https://devapp.petyosa.com/fityosa-explore"],
+    "Community": ["https://devapp.petyosa.com/community"],
+}
+
+# Crawl strategy: bfs (breadth-first) or dfs (depth-first)
+# Note: dfs is automatically used when SINGLE_MODULE is set
+CRAWL_STRATEGY = "dfs"
 
 # Output settings
 OUTPUT_FOLDER = "test_results"
