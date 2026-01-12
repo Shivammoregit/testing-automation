@@ -35,6 +35,41 @@ class ElementTester:
         except Exception as e:
             print(f"Failed to take screenshot: {e}")
             return ""
+
+    def _ensure_interactable(self, element) -> bool:
+        """Best-effort checks to reduce flaky interactions."""
+        try:
+            element.wait_for_element_state("visible", timeout=config.ELEMENT_TIMEOUT)
+            element.wait_for_element_state("stable", timeout=config.ELEMENT_TIMEOUT)
+        except Exception:
+            return False
+        return True
+
+    def _maybe_go_back(self, initial_url: str):
+        """Return to the initial URL when a navigation occurs."""
+        try:
+            if self.page.url != initial_url:
+                self.page.go_back(wait_until=config.NAVIGATION_WAIT_UNTIL, timeout=config.NAVIGATION_TIMEOUT)
+                time.sleep(config.ELEMENT_INTERACTION_DELAY)
+        except Exception:
+            pass
+
+    def _click_with_optional_popup(self, element):
+        """Click and handle a popup if one appears."""
+        try:
+            with self.page.expect_popup(timeout=config.POPUP_WAIT_TIMEOUT_MS) as popup_info:
+                element.click(timeout=config.ELEMENT_TIMEOUT)
+            popup = popup_info.value
+            try:
+                popup.wait_for_load_state("domcontentloaded", timeout=config.NAVIGATION_TIMEOUT)
+                popup.close()
+            except Exception:
+                pass
+            return True
+        except PlaywrightTimeout:
+            return True
+        except Exception:
+            return False
     
     def test_button(self, element_info: dict) -> ElementTest:
         """Test a button element."""
@@ -64,18 +99,21 @@ class ElementTester:
                 test_result.status = TestStatus.SKIPPED
                 test_result.error_message = "Element not enabled"
                 return test_result
+
+            if not self._ensure_interactable(element):
+                test_result.status = TestStatus.SKIPPED
+                test_result.error_message = "Element not interactable"
+                return test_result
             
             # Try to click
-            element.click(timeout=config.ELEMENT_TIMEOUT)
+            if not self._click_with_optional_popup(element):
+                raise Exception("Click failed")
             
             # Wait a moment for any reactions
             time.sleep(config.ELEMENT_INTERACTION_DELAY)
             
             # Check if we navigated away
-            if self.page.url != current_url:
-                # Go back to continue testing
-                self.page.go_back()
-                time.sleep(config.ELEMENT_INTERACTION_DELAY)
+            self._maybe_go_back(current_url)
             
             # Check for any error dialogs/modals
             if self._check_error_dialog():
@@ -117,24 +155,28 @@ class ElementTester:
                 test_result.status = TestStatus.SKIPPED
                 test_result.error_message = "Element not visible"
                 return test_result
+
+            if not self._ensure_interactable(element):
+                test_result.status = TestStatus.SKIPPED
+                test_result.error_message = "Element not interactable"
+                return test_result
             
             href = element.get_attribute("href")
             current_url = self.page.url
             
             # Click the link
-            element.click(timeout=config.ELEMENT_TIMEOUT)
+            if not self._click_with_optional_popup(element):
+                raise Exception("Click failed")
             time.sleep(config.ELEMENT_INTERACTION_DELAY)
             
             # Wait for navigation
             try:
-                self.page.wait_for_load_state("networkidle", timeout=config.NAVIGATION_TIMEOUT)
+                self.page.wait_for_load_state(config.NAVIGATION_WAIT_UNTIL, timeout=config.NAVIGATION_TIMEOUT)
             except Exception:
                 pass
             
             # Go back
-            if self.page.url != current_url:
-                self.page.go_back()
-                time.sleep(config.ELEMENT_INTERACTION_DELAY)
+            self._maybe_go_back(current_url)
             
         except PlaywrightTimeout:
             test_result.status = TestStatus.FAILED

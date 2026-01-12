@@ -63,6 +63,14 @@ BROWSER_HEADLESS = False
 | `BROWSER_HEADLESS` | Run without visible browser | False |
 | `SCREENSHOT_ON_ERROR` | Take screenshots on failures | True |
 | `EXCLUDED_URL_PATTERNS` | URL patterns to skip | logout, api, etc. |
+| `PAGE_WAIT_UNTIL` | Navigation wait state for page loads | domcontentloaded |
+| `NAVIGATION_WAIT_UNTIL` | Wait state for link/button navigation | domcontentloaded |
+| `INCLUDE_QUERY_PARAMS` | Keep query params while crawling | True |
+| `INCLUDE_HASH` | Keep URL fragments while crawling | False |
+| `LOGIN_SUCCESS_SELECTOR` | CSS selector to detect login success | "" |
+| `LOGIN_SUCCESS_URL_KEYWORDS` | URL keywords to detect login success | dashboard, home |
+| `POPUP_WAIT_TIMEOUT_MS` | Time to wait for popup after click | 1500 |
+| `IGNORE_NETWORK_ERROR_PATTERNS` | Network error URL patterns to ignore | google-analytics.com, sentry.io |
 
 ## 🚀 Usage
 

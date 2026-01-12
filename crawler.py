@@ -16,7 +16,9 @@ class PageCrawler:
     def __init__(self, page: Page, base_url: str):
         self.page = page
         self.base_url = base_url
-        self.base_domain = urlparse(base_url).netloc
+        parsed_base = urlparse(base_url)
+        self.base_domain = parsed_base.netloc
+        self.base_scheme = parsed_base.scheme
         self.visited_urls: Set[str] = set()
         self.urls_to_visit: List[Tuple[str, int]] = []  # (url, depth)
         self.network_errors: List[NetworkError] = []
@@ -30,6 +32,9 @@ class PageCrawler:
         
         def handle_response(response):
             if response.status in config.ERROR_STATUS_CODES:
+                for pattern in config.IGNORE_NETWORK_ERROR_PATTERNS:
+                    if pattern.lower() in response.url.lower():
+                        return
                 try:
                     request = response.request
                     self.network_errors.append(NetworkError(
@@ -67,14 +72,20 @@ class PageCrawler:
         """Check if URL should be crawled."""
         if not url:
             return False
-        
+
         # Parse the URL
         parsed = urlparse(url)
-        
+
+        # Only http(s) links
+        if parsed.scheme and parsed.scheme not in ("http", "https"):
+            return False
+
         # Must be same domain
         if parsed.netloc and parsed.netloc != self.base_domain:
             return False
-        
+        if parsed.scheme and parsed.scheme != self.base_scheme:
+            return False
+
         # Check excluded patterns
         for pattern in config.EXCLUDED_URL_PATTERNS:
             if pattern.lower() in url.lower():
@@ -86,10 +97,15 @@ class PageCrawler:
         """Normalize URL for comparison."""
         # Make absolute URL
         absolute_url = urljoin(self.page.url, url)
-        
+
         # Remove fragments
         parsed = urlparse(absolute_url)
         normalized = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+
+        if config.INCLUDE_QUERY_PARAMS and parsed.query:
+            normalized = f"{normalized}?{parsed.query}"
+        if config.INCLUDE_HASH and parsed.fragment:
+            normalized = f"{normalized}#{parsed.fragment}"
         
         # Remove trailing slash for consistency
         if normalized.endswith("/") and len(normalized) > len(f"{parsed.scheme}://{parsed.netloc}/"):
@@ -100,11 +116,11 @@ class PageCrawler:
     def discover_links(self) -> List[str]:
         """Discover all links on the current page."""
         discovered = []
-        
+
         try:
             # Find all anchor tags
             links = self.page.query_selector_all("a[href]")
-            
+
             for link in links:
                 try:
                     href = link.get_attribute("href")
@@ -116,7 +132,27 @@ class PageCrawler:
                     continue
         except Exception as e:
             print(f"Error discovering links: {e}")
-        
+
+        attribute_selectors = [
+            ("[data-href]", "data-href"),
+            ("[data-route]", "data-route"),
+            ("[data-url]", "data-url"),
+        ]
+        for selector, attribute in attribute_selectors:
+            try:
+                elements = self.page.query_selector_all(selector)
+                for elem in elements:
+                    try:
+                        href = elem.get_attribute(attribute)
+                        if href and self._is_valid_url(href):
+                            normalized = self._normalize_url(href)
+                            if normalized not in self.visited_urls:
+                                discovered.append(normalized)
+                    except Exception:
+                        continue
+            except Exception:
+                continue
+
         return list(set(discovered))
     
     def discover_interactive_elements(self) -> List[dict]:
@@ -155,12 +191,13 @@ class PageCrawler:
         try:
             inputs = self.page.query_selector_all("input:visible:not([type='hidden']), select:visible, textarea:visible")
             for inp in inputs:
-                elements.append({
-                    "type": "input",
-                    "element": inp,
-                    "text": self._get_element_text(inp),
-                    "selector": self._get_selector(inp)
-                })
+                if self._should_test_element(inp):
+                    elements.append({
+                        "type": "input",
+                        "element": inp,
+                        "text": self._get_element_text(inp),
+                        "selector": self._get_selector(inp)
+                    })
         except Exception:
             pass
         

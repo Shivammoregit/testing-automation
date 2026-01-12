@@ -77,12 +77,29 @@ def wait_for_manual_login(page, login_url: str, wait_time: int):
     
     while time.time() - start_time < wait_time:
         current_url = page.url
+        current_url_lower = current_url.lower()
+
+        if config.LOGIN_SUCCESS_SELECTOR:
+            try:
+                selector = page.query_selector(config.LOGIN_SUCCESS_SELECTOR)
+                if selector and selector.is_visible():
+                    print_status(f"[OK] Login detected (selector). Continuing with tests...", "success")
+                    time.sleep(2)
+                    return True
+            except Exception:
+                pass
         
         # Check if we've navigated away from login page
-        if current_url != initial_url and "login" not in current_url.lower():
+        if current_url != initial_url and "login" not in current_url_lower:
             print_status(f"[OK] Login detected! Continuing with tests...", "success")
             time.sleep(2)  # Give page time to fully load
             return True
+
+        for keyword in config.LOGIN_SUCCESS_URL_KEYWORDS:
+            if keyword.lower() in current_url_lower:
+                print_status(f"[OK] Login detected (url keyword). Continuing with tests...", "success")
+                time.sleep(2)
+                return True
         
         time.sleep(1)
         remaining = int(wait_time - (time.time() - start_time))
@@ -107,7 +124,7 @@ def test_page(page, crawler: PageCrawler, tester: ElementTester, url: str) -> Pa
     try:
         # Navigate to page
         start_time = time.time()
-        page.goto(url, timeout=config.PAGE_LOAD_TIMEOUT, wait_until="networkidle")
+        page.goto(url, timeout=config.PAGE_LOAD_TIMEOUT, wait_until=config.PAGE_WAIT_UNTIL)
         page_test.load_time_ms = (time.time() - start_time) * 1000
         
         # Get page title
@@ -248,6 +265,7 @@ def run_tests():
                 continue
             
             tested_urls.add(url)
+            crawler.visited_urls.add(url)
             page_count += 1
             
             print_status(f"\n[{page_count}/{config.MAX_PAGES_TO_CRAWL}] Testing: {url}", "highlight")
@@ -288,6 +306,8 @@ def run_tests():
             # Add discovered links to queue with source tracking
             new_links_count = 0
             for link in page_test.discovered_links:
+                if depth >= config.MAX_DEPTH:
+                    continue
                 if link not in tested_urls and link not in [u[0] for u in urls_to_test]:
                     urls_to_test.append((link, url, depth + 1))
                     url_sources[link] = (url, depth + 1)
