@@ -53,7 +53,19 @@ class ElementTester:
         """Return to the initial URL when a navigation occurs."""
         try:
             if self.page.url != initial_url:
-                self.page.go_back(wait_until=config.NAVIGATION_WAIT_UNTIL, timeout=config.NAVIGATION_TIMEOUT)
+                try:
+                    self.page.go_back(
+                        wait_until=config.NAVIGATION_WAIT_UNTIL,
+                        timeout=config.NAVIGATION_TIMEOUT
+                    )
+                except Exception:
+                    pass
+                if self.page.url != initial_url:
+                    self.page.goto(
+                        initial_url,
+                        wait_until=config.NAVIGATION_WAIT_UNTIL,
+                        timeout=config.NAVIGATION_TIMEOUT
+                    )
                 time.sleep(config.ELEMENT_INTERACTION_DELAY)
         except Exception:
             pass
@@ -115,7 +127,10 @@ class ElementTester:
             
             # Wait a moment for any reactions
             time.sleep(config.ELEMENT_INTERACTION_DELAY)
-            
+
+            if self.page.url != current_url:
+                test_result.navigated_url = self.page.url
+
             # Check if we navigated away
             self._maybe_go_back(current_url)
             
@@ -179,6 +194,9 @@ class ElementTester:
             except Exception:
                 pass
             
+            if self.page.url != current_url:
+                test_result.navigated_url = self.page.url
+
             # Go back
             self._maybe_go_back(current_url)
             

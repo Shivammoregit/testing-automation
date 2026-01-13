@@ -94,6 +94,12 @@ You can also pass a URL:
 python smoke_test.py https://devapp.petyosa.com/
 ```
 
+### Pytest Note
+If pytest fails due to global plugin conflicts, run:
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q
+```
+
 3. **Login manually** when the browser opens:
    - The browser will open your website/login page
    - Complete the OTP login process manually
@@ -129,6 +135,9 @@ test_results/
 - **Error Details**: Network and console errors with full info
 - **Element Tests**: Status of each tested element
 - **Screenshot Links**: Direct links to failure screenshots
+
+## SOP Workflow
+See `AGENTS.md` for the required Standard Workflow steps used for non-trivial tasks.
 
 ## 🛡️ What Gets Tested
 

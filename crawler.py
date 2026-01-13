@@ -4,21 +4,42 @@ Page crawler module - discovers all pages and elements on the website.
 
 import time
 from urllib.parse import urljoin, urlparse
-from typing import Set, List, Tuple
+from typing import Set, List, Tuple, Optional
 from playwright.sync_api import Page, ElementHandle
 import config
 from models import NetworkError, ConsoleError, PageTest, ElementTest, TestStatus
 
 
+def is_url_in_module(url: str, module_name: str) -> bool:
+    """Return True if url belongs to the module's seed path(s)."""
+    if not module_name:
+        return True
+    module_urls = config.MODULES.get(module_name, [])
+    if not module_urls:
+        return False
+
+    parsed = urlparse(url)
+    for seed_url in module_urls:
+        seed_parsed = urlparse(seed_url)
+        if parsed.scheme != seed_parsed.scheme or parsed.netloc != seed_parsed.netloc:
+            continue
+        seed_path = seed_parsed.path.rstrip("/")
+        url_path = parsed.path.rstrip("/")
+        if url_path == seed_path or url_path.startswith(seed_path + "/"):
+            return True
+    return False
+
+
 class PageCrawler:
     """Crawls and discovers pages on a website."""
     
-    def __init__(self, page: Page, base_url: str):
+    def __init__(self, page: Page, base_url: str, module_name: Optional[str] = None):
         self.page = page
         self.base_url = base_url
         parsed_base = urlparse(base_url)
         self.base_domain = parsed_base.netloc
         self.base_scheme = parsed_base.scheme
+        self.module_name = module_name or None
         self.visited_urls: Set[str] = set()
         self.urls_to_visit: List[Tuple[str, int]] = []  # (url, depth)
         self.network_errors: List[NetworkError] = []
@@ -73,8 +94,9 @@ class PageCrawler:
         if not url:
             return False
 
-        # Parse the URL
-        parsed = urlparse(url)
+        # Resolve to absolute URL before checks
+        absolute_url = urljoin(self.page.url, url)
+        parsed = urlparse(absolute_url)
 
         # Only http(s) links
         if parsed.scheme and parsed.scheme not in ("http", "https"):
@@ -88,10 +110,58 @@ class PageCrawler:
 
         # Check excluded patterns
         for pattern in config.EXCLUDED_URL_PATTERNS:
-            if pattern.lower() in url.lower():
+            if pattern.lower() in absolute_url.lower():
                 return False
+
+        if self.module_name and not is_url_in_module(absolute_url, self.module_name):
+            return False
         
         return True
+
+    def _url_in_selected_module(self, url: str) -> bool:
+        """Check if url belongs to the selected module (if any)."""
+        if not self.module_name:
+            return True
+        return is_url_in_module(url, self.module_name)
+
+    def _get_element_target_url(self, element) -> str:
+        """Extract target URL from element attributes, if any."""
+        for attr in ("href", "data-href", "data-route", "data-url"):
+            try:
+                value = element.get_attribute(attr)
+            except Exception:
+                value = None
+            if not value:
+                continue
+            if attr == "href":
+                lower_value = value.lower()
+                if value == "#" or lower_value.startswith("javascript:") or "void(0)" in lower_value:
+                    continue
+            return value
+        return ""
+
+    def _should_include_element(self, element) -> bool:
+        """Apply module-aware filtering for element testing."""
+        if not self._should_test_element(element):
+            return False
+        if not self.module_name:
+            return True
+
+        target_url = self._get_element_target_url(element)
+        if not target_url:
+            return True
+
+        target_lower = target_url.lower()
+        if target_url.startswith("#") or target_lower.startswith("javascript:"):
+            return True
+
+        absolute_url = urljoin(self.page.url, target_url)
+        parsed = urlparse(absolute_url)
+        if parsed.scheme and parsed.scheme not in ("http", "https"):
+            return False
+        if parsed.netloc and parsed.netloc != self.base_domain:
+            return False
+        return self._url_in_selected_module(absolute_url)
     
     def _normalize_url(self, url: str) -> str:
         """Normalize URL for comparison."""
@@ -163,7 +233,7 @@ class PageCrawler:
         try:
             buttons = self.page.query_selector_all("button:visible, [role='button']:visible, input[type='button']:visible, input[type='submit']:visible")
             for btn in buttons:
-                if self._should_test_element(btn):
+                if self._should_include_element(btn):
                     elements.append({
                         "type": "button",
                         "element": btn,
@@ -177,7 +247,7 @@ class PageCrawler:
         try:
             clickables = self.page.query_selector_all("[onclick]:visible, [data-action]:visible")
             for elem in clickables:
-                if self._should_test_element(elem):
+                if self._should_include_element(elem):
                     elements.append({
                         "type": "clickable",
                         "element": elem,
@@ -191,7 +261,7 @@ class PageCrawler:
         try:
             inputs = self.page.query_selector_all("input:visible:not([type='hidden']), select:visible, textarea:visible")
             for inp in inputs:
-                if self._should_test_element(inp):
+                if self._should_include_element(inp):
                     elements.append({
                         "type": "input",
                         "element": inp,
@@ -205,7 +275,7 @@ class PageCrawler:
         try:
             nav_items = self.page.query_selector_all("nav a:visible, .nav a:visible, .navbar a:visible, .menu a:visible")
             for nav in nav_items:
-                if self._should_test_element(nav):
+                if self._should_include_element(nav):
                     elements.append({
                         "type": "nav_link",
                         "element": nav,
@@ -219,7 +289,7 @@ class PageCrawler:
         try:
             dropdowns = self.page.query_selector_all("[data-toggle]:visible, [data-bs-toggle]:visible, .dropdown-toggle:visible")
             for dd in dropdowns:
-                if self._should_test_element(dd):
+                if self._should_include_element(dd):
                     elements.append({
                         "type": "dropdown",
                         "element": dd,
@@ -233,7 +303,7 @@ class PageCrawler:
         try:
             modals = self.page.query_selector_all("[data-modal]:visible, [data-bs-target^='#']:visible")
             for modal in modals:
-                if self._should_test_element(modal):
+                if self._should_include_element(modal):
                     elements.append({
                         "type": "modal_trigger",
                         "element": modal,
@@ -262,7 +332,42 @@ class PageCrawler:
             text = element.inner_text()
             if text and text.strip():
                 return text.strip()[:100]
-            
+
+            # Try aria-label
+            aria = element.get_attribute("aria-label")
+            if aria:
+                return aria.strip()[:100]
+
+            # Try aria-labelledby
+            try:
+                labelled = element.get_attribute("aria-labelledby")
+                if labelled:
+                    label_text = element.evaluate(
+                        """
+                        (el) => {
+                            const ids = (el.getAttribute('aria-labelledby') || '').split(/\s+/).filter(Boolean);
+                            if (!ids.length) return '';
+                            const parts = ids.map(id => {
+                                const target = document.getElementById(id);
+                                return target ? (target.innerText || target.textContent || '').trim() : '';
+                            }).filter(Boolean);
+                            return parts.join(' ');
+                        }
+                        """
+                    )
+                    if label_text:
+                        return label_text[:100]
+            except Exception:
+                pass
+
+            # Try text content
+            try:
+                text_content = element.evaluate("el => (el.textContent || '').trim()")
+                if text_content:
+                    return text_content[:100]
+            except Exception:
+                pass
+
             # Try value
             value = element.get_attribute("value")
             if value:
@@ -273,15 +378,25 @@ class PageCrawler:
             if placeholder:
                 return placeholder[:100]
             
-            # Try aria-label
-            aria = element.get_attribute("aria-label")
-            if aria:
-                return aria[:100]
-            
             # Try title
             title = element.get_attribute("title")
             if title:
                 return title[:100]
+
+            # Try name attribute
+            name_attr = element.get_attribute("name")
+            if name_attr:
+                return name_attr[:100]
+
+            # Try alt text
+            alt = element.get_attribute("alt")
+            if alt:
+                return alt[:100]
+
+            # Try data-testid
+            testid = element.get_attribute("data-testid")
+            if testid:
+                return testid[:100]
             
             return "[No text]"
         except Exception:

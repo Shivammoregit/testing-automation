@@ -837,12 +837,12 @@
             text-transform: uppercase;
         }
 
-        .severity-critical {
+        .severity-high-risk {
             background: rgba(220, 38, 38, 0.2);
             color: #dc2626;
         }
 
-        .severity-high {
+        .severity-risk {
             background: rgba(234, 88, 12, 0.2);
             color: #ea580c;
         }
@@ -862,6 +862,12 @@
             font-size: 0.8rem;
             color: var(--text-gray);
             word-break: break-all;
+        }
+
+        .error-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.35rem;
         }
 
         .explanation-box {
@@ -906,17 +912,80 @@
             color: var(--text-gray);
         }
 
+        .verification {
+            background: rgba(59, 130, 246, 0.12);
+            border-left: 3px solid #3b82f6;
+            padding: 0.5rem 0.75rem;
+            margin-top: 0.5rem;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .verification-label {
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #3b82f6;
+            margin-bottom: 0.25rem;
+        }
+
+        .verification-text {
+            font-size: 0.8rem;
+            color: var(--text-gray);
+        }
+
         .screenshot {
             margin-top: 0.75rem;
             border: 1px solid var(--border);
             border-radius: 8px;
-            overflow: hidden;
+            padding: 0.5rem 0.75rem;
+        }
+
+        .screenshot summary {
+            cursor: pointer;
+            font-size: 0.75rem;
+            color: var(--text-muted);
         }
 
         .screenshot img {
             display: block;
             width: 100%;
             height: auto;
+            margin-top: 0.5rem;
+            border-radius: 6px;
+        }
+
+        .log-details {
+            margin-top: 0.5rem;
+        }
+
+        .log-details summary {
+            cursor: pointer;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .log-block {
+            margin-top: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            background: var(--bg-card);
+        }
+
+        .log-title {
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+        }
+
+        .log-block pre {
+            margin: 0;
+            font-size: 0.72rem;
+            color: var(--text-gray);
+            white-space: pre-wrap;
+            word-break: break-word;
         }
 
         /* Element Tests */
@@ -971,6 +1040,92 @@
         .crawl-list {
             max-height: 500px;
             overflow-y: auto;
+        }
+
+        .module-flow {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .module-flow summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .module-flow .crawl-list {
+            margin-top: 0.75rem;
+            max-height: 320px;
+        }
+
+        .module-tree {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .module-tree summary,
+        .submodule-tree summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .submodule-tree {
+            margin-top: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            border: 1px dashed var(--border);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .flow-page {
+            margin-top: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            background: var(--bg-card);
+        }
+
+        .flow-page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .flow-page-url {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.8rem;
+            color: var(--accent);
+            word-break: break-all;
+        }
+
+        .flow-page-title {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .flow-elements {
+            margin-top: 0.5rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+
+        .flow-element {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-gray);
         }
 
         .crawl-step {
@@ -1158,6 +1313,12 @@
             <a href="#errors" class="nav-link" onclick="closeMenu()">⚠️ Errors by Module</a>
             <a href="#results" class="nav-link" onclick="closeMenu()">📄 Page Results</a>
             <a href="#crawl" class="nav-link" onclick="closeMenu()">🔗 Crawl Path</a>
+            {% if module_crawl_path %}
+            <a href="#crawl-modules" class="nav-link" onclick="closeMenu()">🧭 Module Crawl Flow</a>
+            {% endif %}
+            {% if module_flow_tree %}
+            <a href="#flow-tree" class="nav-link" onclick="closeMenu()">🌳 Module Flow Tree</a>
+            {% endif %}
             {% if module_summary %}
             <div class="nav-section">
                 <div class="nav-section-title">Quick Filter</div>
@@ -1283,20 +1444,47 @@
                         <p>Failed API calls or resources that couldn't load.</p>
                         {% if errs.network %}{% for e in errs.network %}
                         <div class="error-item network">
-                            <div class="error-header"><span class="error-type">{{ e.method }} {{ e.status_code }}</span>
-                            </div>
-                            <div class="error-message">{{ e.url }}</div>
-                            {% if e.explanation_title %}
+                            <div class="error-header"><span class="error-type">HTTP {{ e.status_code }} {{
+                                    e.status_text }}</span><span
+                                    class="severity-badge severity-{{ e.severity }}">{{ e.severity|replace('-', ' ')
+                                    }}</span></div>
+                            <div class="error-message">{{ e.method }} {{ e.url }}</div>
+                            {% if e.explanation_title or e.simple_explanation or e.explanation_text or e.suggestion %}
                             <div class="explanation-box">
-                                <div class="explanation-title">💡 {{ e.explanation_title }}</div>
-                                {% if e.simple_explanation %}<div class="explanation-text"><strong>Simple:</strong> {{
-                                    e.simple_explanation }}</div>{% endif %}
-                                <div class="suggestion">
-                                    <div class="suggestion-label">Fix</div>
+                                <div class="explanation-title">Issue{% if e.explanation_title %}: {{
+                                    e.explanation_title }}{% endif %}</div>
+                                {% if e.simple_explanation or e.explanation_text %}<div class="explanation-text">{{
+                                    e.simple_explanation or e.explanation_text }}</div>{% endif %}
+                                {% if e.suggestion %}<div class="suggestion">
+                                    <div class="suggestion-label">Solution</div>
                                     <div class="suggestion-text">{{ e.suggestion }}</div>
-                                </div>
+                                </div>{% endif %}
+                                {% if e.verification %}<div class="verification">
+                                    <div class="verification-label">Verification</div>
+                                    <div class="verification-text">{{ e.verification }}</div>
+                                </div>{% endif %}
                             </div>
                             {% endif %}
+                            <details class="log-details">
+                                <summary>Show network log</summary>
+                                {% if e.request_headers %}<div class="log-block">
+                                    <div class="log-title">Request headers</div>
+                                    <pre>{% for k, v in e.request_headers|dictsort %}{{ k }}: {{ v }}
+{% endfor %}</pre>
+                                </div>{% endif %}
+                                {% if e.response_headers %}<div class="log-block">
+                                    <div class="log-title">Response headers</div>
+                                    <pre>{% for k, v in e.response_headers|dictsort %}{{ k }}: {{ v }}
+{% endfor %}</pre>
+                                </div>{% endif %}
+                                {% if e.console_logs %}<div class="log-block">
+                                    <div class="log-title">Console logs</div>
+                                    <pre>{% for msg in e.console_logs %}{{ msg }}
+{% endfor %}</pre>
+                                </div>{% endif %}
+                            </details>
+                            {% if e.screenshot_path %}<details class="screenshot"><summary>Show screenshot</summary><img
+                                    src="{{ e.screenshot_path }}" alt="Screenshot"></details>{% endif %}
                         </div>
                         {% endfor %}{% else %}<p class="success-msg">✓ No network errors</p>{% endif %}
                     </div>
@@ -1305,17 +1493,46 @@
                         <p>JavaScript errors that may break functionality.</p>
                         {% if errs.console %}{% for e in errs.console %}
                         <div class="error-item console">
-                            <div class="error-header"><span class="error-type">{{ e.error_type }}</span></div>
+                            <div class="error-header"><span class="error-type">{{ e.error_type }}</span><span
+                                    class="severity-badge severity-{{ e.severity }}">{{ e.severity|replace('-', ' ')
+                                    }}</span></div>
                             <div class="error-message">{{ e.message[:300] }}</div>
-                            {% if e.explanation_title %}
+                            {% if e.source %}<div class="error-meta">Source: {{ e.source }}{% if e.line_number %} ·
+                                Line {{ e.line_number }}{% endif %}</div>{% endif %}
+                            {% if e.explanation_title or e.simple_explanation or e.explanation_text or e.suggestion %}
                             <div class="explanation-box">
-                                <div class="explanation-title">💡 {{ e.explanation_title }}</div>
-                                <div class="suggestion">
-                                    <div class="suggestion-label">Fix</div>
+                                <div class="explanation-title">Issue{% if e.explanation_title %}: {{
+                                    e.explanation_title }}{% endif %}</div>
+                                {% if e.simple_explanation or e.explanation_text %}<div class="explanation-text">{{
+                                    e.simple_explanation or e.explanation_text }}</div>{% endif %}
+                                {% if e.suggestion %}<div class="suggestion">
+                                    <div class="suggestion-label">Solution</div>
                                     <div class="suggestion-text">{{ e.suggestion }}</div>
-                                </div>
+                                </div>{% endif %}
+                                {% if e.verification %}<div class="verification">
+                                    <div class="verification-label">Verification</div>
+                                    <div class="verification-text">{{ e.verification }}</div>
+                                </div>{% endif %}
                             </div>
                             {% endif %}
+                            <details class="log-details">
+                                <summary>Show console log</summary>
+                                <div class="log-block">
+                                    <div class="log-title">Message</div>
+                                    <pre>{{ e.message }}</pre>
+                                </div>
+                                {% if e.source %}<div class="log-block">
+                                    <div class="log-title">Source</div>
+                                    <pre>{{ e.source }}{% if e.line_number %}:{{ e.line_number }}{% endif %}</pre>
+                                </div>{% endif %}
+                                {% if e.console_logs %}<div class="log-block">
+                                    <div class="log-title">Console logs</div>
+                                    <pre>{% for msg in e.console_logs %}{{ msg }}
+{% endfor %}</pre>
+                                </div>{% endif %}
+                            </details>
+                            {% if e.screenshot_path %}<details class="screenshot"><summary>Show screenshot</summary><img
+                                    src="{{ e.screenshot_path }}" alt="Screenshot"></details>{% endif %}
                         </div>
                         {% endfor %}{% else %}<p class="success-msg">✓ No console errors</p>{% endif %}
                     </div>
@@ -1324,9 +1541,33 @@
                         <p>Buttons, links, or forms that didn't work.</p>
                         {% if errs.element %}{% for e in errs.element %}
                         <div class="error-item console">
-                            <div class="error-type">{{ e.element_type }}</div>
-                            <div class="error-message">{{ e.element_text }} — {{ e.error_message[:150] if
+                            <div class="error-header"><span class="error-type">{{ e.element_type }}</span><span
+                                    class="severity-badge severity-{{ e.severity }}">{{ e.severity|replace('-', ' ')
+                                    }}</span></div>
+                            {% set element_label = e.element_text %}
+                            {% if not element_label or element_label in ['[No text]', '[Unknown]'] %}
+                            {% set element_label = e.element_selector if e.element_selector else e.element_type %}
+                            {% endif %}
+                            <div class="error-message">{{ element_label }} — {{ e.error_message[:150] if
                                 e.error_message else '' }}</div>
+                            {% if e.explanation_title or e.simple_explanation or e.explanation_text or e.suggestion %}
+                            <div class="explanation-box">
+                                <div class="explanation-title">Issue{% if e.explanation_title %}: {{
+                                    e.explanation_title }}{% endif %}</div>
+                                {% if e.simple_explanation or e.explanation_text %}<div class="explanation-text">{{
+                                    e.simple_explanation or e.explanation_text }}</div>{% endif %}
+                                {% if e.suggestion %}<div class="suggestion">
+                                    <div class="suggestion-label">Solution</div>
+                                    <div class="suggestion-text">{{ e.suggestion }}</div>
+                                </div>{% endif %}
+                                {% if e.verification %}<div class="verification">
+                                    <div class="verification-label">Verification</div>
+                                    <div class="verification-text">{{ e.verification }}</div>
+                                </div>{% endif %}
+                            </div>
+                            {% endif %}
+                            {% if e.screenshot_path %}<details class="screenshot"><summary>Show screenshot</summary><img
+                                    src="{{ e.screenshot_path }}" alt="Screenshot"></details>{% endif %}
                         </div>
                         {% endfor %}{% else %}<p class="success-msg">✓ No element errors</p>{% endif %}
                     </div>
@@ -1354,14 +1595,88 @@
                         </div>
                         <div class="crawl-info">
                             <div class="crawl-url">{{ s.url }}</div>
-                            <div class="crawl-meta">{{ s.title or 'No title' }} · {{ s.links_found }} links · from {{
-                                s.discovered_from }}</div>
+                            <div class="crawl-meta">{{ s.title or 'No title' }} · {{ s.links_found }} links · module {{
+                                s.module }} · from {{ s.discovered_from }}</div>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
             </div>
         </div>
+
+        {% if module_crawl_path %}
+        <div class="section fade-in" id="crawl-modules">
+            <div class="section-header" onclick="toggleSection(this)">
+                <div class="section-title"><span class="icon">🧭</span> Module Crawl Flow</div>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.85rem;">Full crawl path grouped
+                    by module (in visit order).</p>
+                {% for name, steps in module_crawl_path|dictsort %}
+                <details class="module-flow">
+                    <summary>{{ name }} ({{ steps|length }} pages)</summary>
+                    <div class="crawl-list">
+                        {% for s in steps %}
+                        <div class="crawl-step">
+                            <div>
+                                <div class="crawl-number {{ s.status.value }}">{{ s.step_number }}</div>
+                                <div class="crawl-line"></div>
+                            </div>
+                            <div class="crawl-info">
+                                <div class="crawl-url">{{ s.url }}</div>
+                                <div class="crawl-meta">{{ s.title or 'No title' }} · {{ s.links_found }} links · from
+                                    {{ s.discovered_from }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </details>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if module_flow_tree %}
+        <div class="section fade-in" id="flow-tree">
+            <div class="section-header" onclick="toggleSection(this)">
+                <div class="section-title"><span class="icon">🌳</span> Module Flow Tree</div>
+                <span class="section-toggle">▼</span>
+            </div>
+            <div class="section-content">
+                <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.85rem;">Tree view of module →
+                    submodule → page → element names.</p>
+                {% for name, submodules in module_flow_tree.items() %}
+                <details class="module-tree">
+                    <summary>{{ name }} ({{ submodules|length }} submodules)</summary>
+                    {% for sub_name, pages in submodules.items() %}
+                    <details class="submodule-tree">
+                        <summary>{{ sub_name }} ({{ pages|length }} pages)</summary>
+                        {% for page in pages %}
+                        <div class="flow-page">
+                            <div class="flow-page-header">
+                                <div class="flow-page-url">{{ page.url }}</div>
+                                <span class="status-badge status-{{ page.status.value }}">{{ page.status.value }}</span>
+                            </div>
+                            <div class="flow-page-title">{{ page.title or 'No title' }}</div>
+                            {% if page.elements %}
+                            <div class="flow-elements">
+                                {% for element in page.elements %}
+                                <span class="flow-element">{{ element }}</span>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="flow-page-title">No elements captured on this page.</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </details>
+                    {% endfor %}
+                </details>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
 
         <div class="section fade-in" id="results">
             <div class="section-header expanded" onclick="toggleSection(this)">
@@ -1414,20 +1729,41 @@
                             </div>
                             {% for e in p.network_errors %}
                             <div class="error-item network">
-                                <div class="error-header"><span class="error-type">{{ e.method }} {{ e.status_code
-                                        }}</span><span class="severity-badge severity-{{ e.severity }}">{{ e.severity
+                                <div class="error-header"><span class="error-type">HTTP {{ e.status_code }} {{
+                                        e.status_text }}</span><span
+                                        class="severity-badge severity-{{ e.severity }}">{{ e.severity|replace('-', ' ')
                                         }}</span></div>
-                                <div class="error-message">{{ e.url }}</div>
-                                {% if e.explanation_title %}<div class="explanation-box">
-                                    <div class="explanation-title">💡 {{ e.explanation_title }}</div>{% if
-                                    e.simple_explanation %}<div class="explanation-text">{{ e.simple_explanation }}
-                                    </div>{% endif %}<div class="suggestion">
-                                        <div class="suggestion-label">Fix</div>
+                                <div class="error-message">{{ e.method }} {{ e.url }}</div>
+                                {% if e.explanation_title or e.simple_explanation or e.explanation_text or e.suggestion %}
+                                <div class="explanation-box">
+                                    <div class="explanation-title">Issue{% if e.explanation_title %}: {{
+                                        e.explanation_title }}{% endif %}</div>
+                                    {% if e.simple_explanation or e.explanation_text %}<div class="explanation-text">{{
+                                        e.simple_explanation or e.explanation_text }}</div>{% endif %}
+                                    {% if e.suggestion %}<div class="suggestion">
+                                        <div class="suggestion-label">Solution</div>
                                         <div class="suggestion-text">{{ e.suggestion }}</div>
-                                    </div>
+                                    </div>{% endif %}
+                                    {% if e.verification %}<div class="verification">
+                                        <div class="verification-label">Verification</div>
+                                        <div class="verification-text">{{ e.verification }}</div>
+                                    </div>{% endif %}
                                 </div>{% endif %}
-                                {% if e.screenshot_path %}<div class="screenshot"><img src="{{ e.screenshot_path }}"
-                                        alt="Screenshot"></div>{% endif %}
+                                <details class="log-details">
+                                    <summary>Show network log</summary>
+                                    {% if e.request_headers %}<div class="log-block">
+                                        <div class="log-title">Request headers</div>
+                                        <pre>{% for k, v in e.request_headers|dictsort %}{{ k }}: {{ v }}
+{% endfor %}</pre>
+                                    </div>{% endif %}
+                                    {% if e.response_headers %}<div class="log-block">
+                                        <div class="log-title">Response headers</div>
+                                        <pre>{% for k, v in e.response_headers|dictsort %}{{ k }}: {{ v }}
+{% endfor %}</pre>
+                                    </div>{% endif %}
+                                </details>
+                                {% if e.screenshot_path %}<details class="screenshot"><summary>Show screenshot</summary><img
+                                        src="{{ e.screenshot_path }}" alt="Screenshot"></details>{% endif %}
                             </div>
                             {% endfor %}
                         </div>
@@ -1440,15 +1776,39 @@
                             {% for e in p.console_errors %}
                             <div class="error-item console">
                                 <div class="error-header"><span class="error-type">{{ e.error_type }}</span><span
-                                        class="severity-badge severity-{{ e.severity }}">{{ e.severity }}</span></div>
+                                        class="severity-badge severity-{{ e.severity }}">{{ e.severity|replace('-', ' ')
+                                        }}</span></div>
                                 <div class="error-message">{{ e.message[:400] }}</div>
-                                {% if e.explanation_title %}<div class="explanation-box">
-                                    <div class="explanation-title">💡 {{ e.explanation_title }}</div>
-                                    <div class="suggestion">
-                                        <div class="suggestion-label">Fix</div>
+                                {% if e.source %}<div class="error-meta">Source: {{ e.source }}{% if e.line_number %}
+                                    · Line {{ e.line_number }}{% endif %}</div>{% endif %}
+                                {% if e.explanation_title or e.simple_explanation or e.explanation_text or e.suggestion %}
+                                <div class="explanation-box">
+                                    <div class="explanation-title">Issue{% if e.explanation_title %}: {{
+                                        e.explanation_title }}{% endif %}</div>
+                                    {% if e.simple_explanation or e.explanation_text %}<div class="explanation-text">{{
+                                        e.simple_explanation or e.explanation_text }}</div>{% endif %}
+                                    {% if e.suggestion %}<div class="suggestion">
+                                        <div class="suggestion-label">Solution</div>
                                         <div class="suggestion-text">{{ e.suggestion }}</div>
-                                    </div>
+                                    </div>{% endif %}
+                                    {% if e.verification %}<div class="verification">
+                                        <div class="verification-label">Verification</div>
+                                        <div class="verification-text">{{ e.verification }}</div>
+                                    </div>{% endif %}
                                 </div>{% endif %}
+                                <details class="log-details">
+                                    <summary>Show console log</summary>
+                                    <div class="log-block">
+                                        <div class="log-title">Message</div>
+                                        <pre>{{ e.message }}</pre>
+                                    </div>
+                                    {% if e.source %}<div class="log-block">
+                                        <div class="log-title">Source</div>
+                                        <pre>{{ e.source }}{% if e.line_number %}:{{ e.line_number }}{% endif %}</pre>
+                                    </div>{% endif %}
+                                </details>
+                                {% if e.screenshot_path %}<details class="screenshot"><summary>Show screenshot</summary><img
+                                        src="{{ e.screenshot_path }}" alt="Screenshot"></details>{% endif %}
                             </div>
                             {% endfor %}
                         </div>
@@ -1461,10 +1821,37 @@
                             <div class="element-test">
                                 <span class="element-type">{{ t.element_type }}</span>
                                 <div class="element-info">
-                                    <div class="element-text">{{ t.element_text }}</div>
+                                    {% set element_label = t.element_text %}
+                                    {% if not element_label or element_label in ['[No text]', '[Unknown]'] %}
+                                    {% set element_label = t.element_selector if t.element_selector else t.element_type %}
+                                    {% endif %}
+                                    <div class="element-text">{{ element_label }}</div>
                                     <div class="element-selector">{{ t.element_selector }}</div>
                                     {% if t.error_message %}<div class="element-error">{{ t.error_message[:150] }}</div>
                                     {% endif %}
+                                    {% if t.status.value == 'failed' %}
+                                    <span class="severity-badge severity-{{ t.severity }}">{{ t.severity|replace('-', ' ')
+                                        }}</span>
+                                    {% endif %}
+                                    {% if t.status.value == 'failed' and (t.explanation_title or t.simple_explanation or t.explanation_text or t.suggestion) %}
+                                    <div class="explanation-box">
+                                        <div class="explanation-title">Issue{% if t.explanation_title %}: {{
+                                            t.explanation_title }}{% endif %}</div>
+                                        {% if t.simple_explanation or t.explanation_text %}<div
+                                            class="explanation-text">{{ t.simple_explanation or t.explanation_text }}
+                                        </div>{% endif %}
+                                        {% if t.suggestion %}<div class="suggestion">
+                                            <div class="suggestion-label">Solution</div>
+                                            <div class="suggestion-text">{{ t.suggestion }}</div>
+                                        </div>{% endif %}
+                                        {% if t.verification %}<div class="verification">
+                                            <div class="verification-label">Verification</div>
+                                            <div class="verification-text">{{ t.verification }}</div>
+                                        </div>{% endif %}
+                                    </div>
+                                    {% endif %}
+                                    {% if t.screenshot_path %}<details class="screenshot"><summary>Show screenshot</summary><img
+                                            src="{{ t.screenshot_path }}" alt="Screenshot"></details>{% endif %}
                                 </div>
                                 <span class="status-badge status-{{ t.status.value }}">{{ t.status.value }}</span>
                             </div>

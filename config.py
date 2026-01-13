@@ -25,16 +25,29 @@ Available modules:
 """
 
 # Website configuration
-WEBSITE_URL = "https://devapp.petyosa.com/"  # Replace with your website URL
+WEBSITE_URL = "https://devapp.petyosa.com/login"  # Replace with your website URL
 
-# Login configuration
-LOGIN_URL = ""  # Leave empty to use WEBSITE_URL, or specify login page URL
-LOGIN_WAIT_TIME = 30  # Seconds to wait for manual OTP login
+# # Login configuration
+LOGIN_URL = "https://devapp.petyosa.com/login"  # Leave empty to use WEBSITE_URL, or specify login page URL
+LOGIN_WAIT_TIME = 60  # Seconds to wait for manual OTP login
+
+# Auto-login configuration (optional)
+AUTO_LOGIN_ENABLED = True
+AUTO_LOGIN_PHONE = "99999999999"
+AUTO_LOGIN_OTP = "999999"
+AUTO_LOGIN_PHONE_SELECTOR = "input.PhoneInputInput"
+AUTO_LOGIN_CHECKBOX_SELECTOR = "input.PrivateSwitchBase-input"
+AUTO_LOGIN_SEND_OTP_BUTTON_SELECTOR = "button.auth-btn.auth-btn-primary:has-text('Send OTP')"
+AUTO_LOGIN_OTP_CONTAINER_SELECTOR = "div.auth-otp-fields"
+AUTO_LOGIN_OTP_INPUT_SELECTOR = "div.auth-otp-fields input[id^='otp-']"
+AUTO_LOGIN_SUBMIT_BUTTON_SELECTOR = "button.auth-btn.auth-btn-primary:has-text('Proceed')"
+AUTO_LOGIN_STEP_TIMEOUT_MS = 10000
+AUTO_LOGIN_OTP_WAIT_MS = 15000
 
 # ============================================================
 # SINGLE MODULE TESTING (Set to module name or None for all)
 # ============================================================
-SINGLE_MODULE = None  # Examples: "PawMatch", "GroomUp", None (for all)
+SINGLE_MODULE = "PawMatch"  # Examples: "PawMatch", "GroomUp", None (for all)
 
 # Crawling configuration
 MAX_PAGES_TO_CRAWL = 100  # Maximum number of pages to discover and test
@@ -94,7 +107,14 @@ MODULES = {
     "GroomUp": ["https://devapp.petyosa.com/grooming"],
     "HomeVaxi": ["https://devapp.petyosa.com/homevaxi"],
     "FeedaPaw": ["https://devapp.petyosa.com/feedapaw"],
-    "PawMatch": ["https://devapp.petyosa.com/pawmatch"],
+    "PawMatch": [
+        "https://devapp.petyosa.com/pawmatch",
+        "https://devapp.petyosa.com/pawmatch/profile-setup",
+        "https://devapp.petyosa.com/pawmatch/verification",
+        "https://devapp.petyosa.com/pawmatch/swipe",
+        "https://devapp.petyosa.com/pawmatch/matches",
+        "https://devapp.petyosa.com/pawmatch/settings",
+    ],
     "ShopYosa": ["https://devapp.petyosa.com/shopyosa"],
     "Timeline": ["https://devapp.petyosa.com/timeline-premium"],
     "Pet BNB": ["https://devapp.petyosa.com/pet-bnb"],

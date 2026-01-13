@@ -13,7 +13,7 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 
 import config
 from models import TestSession, PageTest, TestStatus, CrawlPathStep
-from crawler import PageCrawler
+from crawler import PageCrawler, is_url_in_module
 from tester import ElementTester
 from report_generator import ReportGenerator
 from error_explanations import (
@@ -58,6 +58,209 @@ def print_status(message: str, status: str = "info"):
     print(f"{Fore.WHITE}[{timestamp}]{Style.RESET_ALL} {color}{message}{Style.RESET_ALL}")
 
 
+def _click_when_enabled(page, selector: str, timeout_ms: int, pick: str = "first") -> bool:
+    try:
+        locator = page.locator(selector)
+        if pick == "last":
+            locator = locator.last
+        else:
+            locator = locator.first
+        locator.wait_for(state="visible", timeout=timeout_ms)
+        try:
+            locator.scroll_into_view_if_needed()
+        except Exception:
+            pass
+
+        start_time = time.time()
+        timeout_seconds = timeout_ms / 1000
+        while time.time() - start_time < timeout_seconds:
+            try:
+                if locator.is_enabled():
+                    locator.click()
+                    return True
+            except Exception:
+                pass
+            time.sleep(0.2)
+        return False
+    except Exception:
+        return False
+
+
+def _ensure_checkbox_checked(page, selector: str, timeout_ms: int) -> bool:
+    try:
+        checkbox = page.wait_for_selector(selector, timeout=timeout_ms)
+        if checkbox:
+            try:
+                if checkbox.is_checked():
+                    return True
+            except Exception:
+                pass
+            try:
+                checkbox.check()
+            except Exception:
+                try:
+                    checkbox.click()
+                except Exception:
+                    pass
+        return bool(page.evaluate(
+            """
+            sel => {
+                const input = document.querySelector(sel);
+                if (!input) return false;
+                if (input.checked) return true;
+                try {
+                    input.checked = true;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                } catch (e) {}
+                if (input.checked) return true;
+                const clickable = input.closest("label") || input.parentElement || input;
+                clickable.click();
+                return input.checked;
+            }
+            """,
+            selector
+        ))
+    except Exception:
+        return False
+
+
+def _click_stage_button(page, timeout_ms: int, labels: list[str]) -> bool:
+    start_time = time.time()
+    timeout_seconds = timeout_ms / 1000
+    labels_norm = [label.lower() for label in labels if label]
+    while time.time() - start_time < timeout_seconds:
+        clicked = page.evaluate(
+            """
+            args => {
+                const buttons = [...document.querySelectorAll(args.buttonSelector)]
+                    .filter(btn => btn.textContent)
+                    .filter(btn => args.labels.some(label => btn.textContent.toLowerCase().includes(label)))
+                    .filter(btn => btn.offsetParent !== null);
+                const target = buttons.find(btn => !btn.disabled && btn.getAttribute("aria-disabled") !== "true");
+                if (!target) return false;
+                target.click();
+                return true;
+            }
+            """,
+            {
+                "buttonSelector": "button.auth-btn.auth-btn-primary",
+                "labels": labels_norm,
+            }
+        )
+        if clicked:
+            return True
+        time.sleep(0.2)
+    return False
+
+
+def attempt_auto_login(page) -> bool:
+    """Attempt automated login if enabled in config."""
+    if not config.AUTO_LOGIN_ENABLED:
+        return False
+
+    try:
+        print_status("[INFO] Attempting auto-login...", "info")
+        phone_input = page.wait_for_selector(
+            config.AUTO_LOGIN_PHONE_SELECTOR,
+            timeout=config.AUTO_LOGIN_STEP_TIMEOUT_MS
+        )
+        phone_value = config.AUTO_LOGIN_PHONE.strip()
+        max_len = phone_input.get_attribute("maxlength")
+        if max_len and max_len.isdigit():
+            max_len_int = int(max_len)
+            if len(phone_value) > max_len_int:
+                phone_value = phone_value[-max_len_int:]
+        phone_input.fill("")
+        phone_input.click()
+        page.keyboard.type(phone_value, delay=50)
+        try:
+            phone_input.dispatch_event("input")
+            phone_input.dispatch_event("change")
+        except Exception:
+            pass
+        try:
+            page.keyboard.press("Tab")
+        except Exception:
+            pass
+        time.sleep(0.3)
+
+        if config.AUTO_LOGIN_CHECKBOX_SELECTOR:
+            _ensure_checkbox_checked(
+                page,
+                config.AUTO_LOGIN_CHECKBOX_SELECTOR,
+                config.AUTO_LOGIN_STEP_TIMEOUT_MS
+            )
+
+        if config.AUTO_LOGIN_SEND_OTP_BUTTON_SELECTOR:
+            clicked = _click_when_enabled(
+                page,
+                config.AUTO_LOGIN_SEND_OTP_BUTTON_SELECTOR,
+                config.AUTO_LOGIN_STEP_TIMEOUT_MS,
+                pick="first"
+            )
+            if not clicked:
+                clicked = _click_stage_button(
+                    page,
+                    config.AUTO_LOGIN_STEP_TIMEOUT_MS,
+                    ["Send OTP", "Proceed"]
+                )
+            if not clicked:
+                print_status("[WARN] Send OTP button did not enable in time.", "warning")
+                return False
+
+        if config.AUTO_LOGIN_OTP_CONTAINER_SELECTOR:
+            page.wait_for_selector(
+                config.AUTO_LOGIN_OTP_CONTAINER_SELECTOR,
+                timeout=config.AUTO_LOGIN_OTP_WAIT_MS
+            )
+
+        otp_inputs = []
+        if config.AUTO_LOGIN_OTP_INPUT_SELECTOR:
+            otp_inputs = page.query_selector_all(config.AUTO_LOGIN_OTP_INPUT_SELECTOR)
+
+        if otp_inputs:
+            def _otp_sort_key(el):
+                try:
+                    el_id = el.get_attribute("id") or ""
+                    if el_id.startswith("otp-"):
+                        return int(el_id.split("-")[1])
+                except Exception:
+                    pass
+                return 0
+
+            otp_inputs = sorted(otp_inputs, key=_otp_sort_key)
+            otp_digits = list(config.AUTO_LOGIN_OTP)
+            for idx, input_el in enumerate(otp_inputs):
+                if idx >= len(otp_digits):
+                    break
+                input_el.fill(otp_digits[idx])
+        elif config.AUTO_LOGIN_OTP:
+            page.keyboard.type(config.AUTO_LOGIN_OTP)
+
+        if config.AUTO_LOGIN_SUBMIT_BUTTON_SELECTOR:
+            clicked = _click_when_enabled(
+                page,
+                config.AUTO_LOGIN_SUBMIT_BUTTON_SELECTOR,
+                config.AUTO_LOGIN_STEP_TIMEOUT_MS,
+                pick="last"
+            )
+            if not clicked:
+                clicked = _click_stage_button(
+                    page,
+                    config.AUTO_LOGIN_STEP_TIMEOUT_MS,
+                    ["Proceed", "Verify", "Submit"]
+                )
+            if not clicked:
+                print_status("[WARN] Submit button did not enable in time.", "warning")
+                return False
+
+        return True
+    except Exception as e:
+        print_status(f"[WARN] Auto-login failed: {str(e)[:80]}", "warning")
+        return False
+
+
 def wait_for_manual_login(page, login_url: str, wait_time: int):
     """Wait for user to complete manual login (OTP)."""
     print_status(f"\n{'='*60}", "highlight")
@@ -66,6 +269,9 @@ def wait_for_manual_login(page, login_url: str, wait_time: int):
     
     print_status(f"Opening login page: {login_url}", "info")
     page.goto(login_url, timeout=config.PAGE_LOAD_TIMEOUT)
+
+    if config.AUTO_LOGIN_ENABLED:
+        attempt_auto_login(page)
     
     print_status(f"\n[WAIT] Please complete the login process (OTP) in the browser.", "warning")
     print_status(f"[WAIT] You have {wait_time} seconds to complete login.", "warning")
@@ -125,6 +331,27 @@ def get_module_name(url: str) -> str:
     return "Uncategorized"
 
 
+def get_verification_text(error_type: str, status_code: int = None) -> str:
+    """Provide a short verification step for the reported issue."""
+    if error_type == "network":
+        if status_code is None:
+            return "Retry the request after the fix and confirm it returns a 2xx response."
+        if status_code >= 500:
+            return "Retry the action and confirm the endpoint returns 2xx without server errors."
+        if status_code in (401, 403):
+            return "Retry with a valid session and confirm access is allowed."
+        if status_code == 404:
+            return "Confirm the URL/resource exists and returns 200 after the fix."
+        if status_code == 400:
+            return "Retry with corrected inputs and confirm a successful response."
+        return "Retry the request after the fix and confirm it returns 2xx."
+    if error_type == "console":
+        return "Repeat the same user action and confirm no console errors appear."
+    if error_type == "element":
+        return "Repeat the interaction and confirm the expected UI response occurs."
+    return ""
+
+
 def test_page(page, crawler: PageCrawler, tester: ElementTester, url: str) -> PageTest:
     """Test a single page."""
     page_test = PageTest(
@@ -171,6 +398,7 @@ def test_page(page, crawler: PageCrawler, tester: ElementTester, url: str) -> Pa
                     test_result.simple_explanation = explanation.get("simple_explanation", "")
                     test_result.suggestion = explanation["suggestion"]
                     test_result.severity = explanation["severity"]
+                    test_result.verification = get_verification_text("element")
                 
                 page_test.element_tests.append(test_result)
                 
@@ -178,6 +406,18 @@ def test_page(page, crawler: PageCrawler, tester: ElementTester, url: str) -> Pa
                     page_test.status = TestStatus.FAILED
             except Exception as e:
                 print_status(f"  Error testing element: {str(e)[:50]}", "warning")
+
+        extra_links = []
+        for test_result in page_test.element_tests:
+            if not test_result.navigated_url:
+                continue
+            normalized = crawler._normalize_url(test_result.navigated_url)
+            if not crawler._is_valid_url(normalized):
+                continue
+            if normalized not in page_test.discovered_links and normalized not in extra_links:
+                extra_links.append(normalized)
+        if extra_links:
+            page_test.discovered_links.extend(extra_links)
 
         for test_result in page_test.element_tests:
             if test_result.status == TestStatus.FAILED and not test_result.screenshot_path and config.SCREENSHOT_ON_ERROR:
@@ -194,6 +434,7 @@ def test_page(page, crawler: PageCrawler, tester: ElementTester, url: str) -> Pa
             error.simple_explanation = explanation.get("simple_explanation", "")
             error.suggestion = explanation["suggestion"]
             error.severity = explanation["severity"]
+            error.verification = get_verification_text("network", error.status_code)
         
         # Add explanations to console errors
         for error in console_errors:
@@ -203,6 +444,7 @@ def test_page(page, crawler: PageCrawler, tester: ElementTester, url: str) -> Pa
             error.simple_explanation = explanation.get("simple_explanation", "")
             error.suggestion = explanation["suggestion"]
             error.severity = explanation["severity"]
+            error.verification = get_verification_text("console")
         
         page_test.network_errors = network_errors
         page_test.console_errors = console_errors
@@ -268,7 +510,7 @@ def run_tests():
         page.set_default_navigation_timeout(config.NAVIGATION_TIMEOUT)
         
         # Initialize components
-        crawler = PageCrawler(page, config.WEBSITE_URL)
+        crawler = PageCrawler(page, config.WEBSITE_URL, module_name=config.SINGLE_MODULE)
         tester = ElementTester(page, output_folder)
         
         # Handle login
@@ -299,7 +541,14 @@ def run_tests():
                     url_sources[normalized] = (f"Module Seed: {module_name}", 0)
 
         normalized_base = crawler._normalize_url(base_url)
-        if normalized_base not in [u[0] for u in urls_to_test]:
+        should_add_base = True
+        if config.SINGLE_MODULE and not is_url_in_module(normalized_base, config.SINGLE_MODULE):
+            should_add_base = False
+            print_status(
+                f"[SKIP] Start page outside selected module '{config.SINGLE_MODULE}': {normalized_base}",
+                "warning"
+            )
+        if should_add_base and normalized_base not in [u[0] for u in urls_to_test]:
             urls_to_test.insert(0, (normalized_base, "Start Page", 0))
             url_sources[normalized_base] = ("Start Page", 0)
         
@@ -366,10 +615,8 @@ def run_tests():
             for link in page_test.discovered_links:
                 if depth >= config.MAX_DEPTH:
                     continue
-                if config.SINGLE_MODULE:
-                    link_module = get_module_name(link)
-                    if link_module != config.SINGLE_MODULE:
-                        continue
+                if config.SINGLE_MODULE and not is_url_in_module(link, config.SINGLE_MODULE):
+                    continue
                 if link not in tested_urls and link not in [u[0] for u in urls_to_test]:
                     urls_to_test.append((link, url, depth + 1))
                     url_sources[link] = (url, depth + 1)

@@ -40,6 +40,7 @@ class NetworkError:
     simple_explanation: str = ""
     suggestion: str = ""
     severity: str = "medium"
+    verification: str = ""
 
 
 @dataclass
@@ -57,6 +58,7 @@ class ConsoleError:
     simple_explanation: str = ""
     suggestion: str = ""
     severity: str = "medium"
+    verification: str = ""
 
 
 @dataclass
@@ -69,6 +71,7 @@ class ElementTest:
     status: TestStatus
     error_message: str = ""
     screenshot_path: str = ""
+    navigated_url: str = ""
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     # Explanation fields
     explanation_title: str = ""
@@ -76,6 +79,7 @@ class ElementTest:
     simple_explanation: str = ""
     suggestion: str = ""
     severity: str = "medium"
+    verification: str = ""
 
 
 @dataclass

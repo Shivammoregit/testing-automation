@@ -4,8 +4,68 @@ HTML Report Generator - creates beautiful test reports.
 
 import os
 from datetime import datetime
+from urllib.parse import urlparse
 from jinja2 import Template
+import config
 from models import TestSession, TestStatus
+
+
+def _normalize_severity(raw: str) -> str:
+    mapping = {
+        "low": "low",
+        "medium": "medium",
+        "high": "risk",
+        "critical": "high-risk",
+    }
+    if not raw:
+        return "medium"
+    return mapping.get(raw.lower(), "medium")
+
+
+def _network_severity(status_code: int, raw: str) -> str:
+    if status_code is None:
+        return _normalize_severity(raw)
+    if status_code >= 500:
+        return "high-risk"
+    if status_code in (401, 403):
+        return "risk"
+    if status_code in (400, 404, 405):
+        return "medium"
+    return _normalize_severity(raw)
+
+
+def _module_seed_paths(module_name: str) -> list[str]:
+    paths = []
+    for seed in config.MODULES.get(module_name, []):
+        parsed = urlparse(seed)
+        path = parsed.path.rstrip("/")
+        if path:
+            paths.append(path)
+    return paths
+
+
+def _submodule_label(module_name: str, url: str) -> str:
+    parsed = urlparse(url)
+    url_path = parsed.path.rstrip("/")
+    best_match = ""
+    for seed_path in _module_seed_paths(module_name):
+        if url_path.startswith(seed_path) and len(seed_path) > len(best_match):
+            best_match = seed_path
+    if not best_match:
+        return "root"
+    relative = url_path[len(best_match):].lstrip("/")
+    if not relative:
+        return "root"
+    return relative.split("/")[0]
+
+
+def _element_label(test) -> str:
+    text = (test.element_text or "").strip()
+    if not text or text in ("[No text]", "[Unknown]"):
+        text = (test.element_selector or "").strip()
+    if not text:
+        text = test.element_type
+    return text
 
 
 class ReportGenerator:
@@ -21,6 +81,14 @@ class ReportGenerator:
     def generate_report(self, session: TestSession) -> str:
         """Generate an HTML report for the test session."""
         template = Template(self._get_template())
+
+        for page in session.pages_tested:
+            for error in page.network_errors:
+                error.severity = _network_severity(error.status_code, error.severity)
+            for error in page.console_errors:
+                error.severity = _normalize_severity(error.severity)
+            for test in page.element_tests:
+                test.severity = _normalize_severity(test.severity)
 
         module_summary = {}
         module_errors = {}
@@ -61,7 +129,10 @@ class ReportGenerator:
                     "explanation_text": error.explanation_text,
                     "simple_explanation": error.simple_explanation,
                     "suggestion": error.suggestion,
+                    "verification": error.verification,
                     "screenshot_path": error.screenshot_path,
+                    "request_headers": error.request_headers,
+                    "response_headers": error.response_headers,
                     "console_logs": console_logs,
                 })
             for error in page.console_errors:
@@ -77,6 +148,7 @@ class ReportGenerator:
                     "explanation_text": error.explanation_text,
                     "simple_explanation": error.simple_explanation,
                     "suggestion": error.suggestion,
+                    "verification": error.verification,
                     "screenshot_path": error.screenshot_path,
                     "console_logs": console_logs,
                 })
@@ -94,10 +166,29 @@ class ReportGenerator:
                     "explanation_text": test.explanation_text,
                     "simple_explanation": test.simple_explanation,
                     "suggestion": test.suggestion,
+                    "verification": test.verification,
                     "screenshot_path": test.screenshot_path,
                     "console_logs": console_logs,
                 })
-        
+
+        module_flow_tree = {}
+        for page in session.pages_tested:
+            module_name = page.module or "Uncategorized"
+            submodule = _submodule_label(module_name, page.url)
+            module_flow_tree.setdefault(module_name, {})
+            module_flow_tree[module_name].setdefault(submodule, [])
+            elements = []
+            for test in page.element_tests:
+                label = _element_label(test)
+                if label not in elements:
+                    elements.append(label)
+            module_flow_tree[module_name][submodule].append({
+                "url": page.url,
+                "title": page.title,
+                "status": page.status,
+                "elements": elements,
+            })
+
         # Make screenshot paths relative for the HTML report
         for page in session.pages_tested:
             for test in page.element_tests:
@@ -119,10 +210,17 @@ class ReportGenerator:
                         self.output_folder
                     )
 
+        module_crawl_path = {}
+        for step in session.crawl_path:
+            module_name = step.module or "Uncategorized"
+            module_crawl_path.setdefault(module_name, []).append(step)
+
         html_content = template.render(
             session=session,
             module_summary=module_summary,
-            module_errors=module_errors
+            module_errors=module_errors,
+            module_crawl_path=module_crawl_path,
+            module_flow_tree=module_flow_tree
         )
         
         report_path = os.path.join(self.output_folder, "test_report.html")
