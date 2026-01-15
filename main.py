@@ -16,6 +16,13 @@ from models import TestSession, PageTest, TestStatus, CrawlPathStep
 from crawler import PageCrawler, is_url_in_module
 from tester import ElementTester
 from report_generator import ReportGenerator
+from route_seeds import (
+    build_route_matchers,
+    expand_route_paths,
+    extract_param_values_from_urls,
+    load_route_paths,
+    normalize_param_values,
+)
 from error_explanations import (
     get_network_error_explanation,
     get_console_error_explanation,
@@ -375,9 +382,31 @@ def test_page(page, crawler: PageCrawler, tester: ElementTester, url: str) -> Pa
         
         # Wait a moment for any dynamic content
         time.sleep(config.CRAWL_DELAY)
+
+        if config.DISCOVERY_WAIT_FOR_SELECTOR:
+            try:
+                page.wait_for_selector(
+                    config.DISCOVERY_WAIT_FOR_SELECTOR,
+                    timeout=config.DISCOVERY_WAIT_TIMEOUT_MS
+                )
+            except Exception:
+                pass
+
+        def _merge_links(target, new_links):
+            for link in new_links:
+                if link not in target:
+                    target.append(link)
+
+        if config.DISCOVERY_EXPAND_NAV:
+            crawler.expand_discovery_elements()
         
         # Discover links
         page_test.discovered_links = crawler.discover_links()
+
+        if config.DISCOVERY_SCROLL:
+            scrolled = crawler.scroll_page()
+            if scrolled and config.DISCOVERY_RESCAN_AFTER_SCROLL:
+                _merge_links(page_test.discovered_links, crawler.discover_links())
         
         # Discover and test interactive elements
         elements = crawler.discover_interactive_elements()
@@ -407,6 +436,9 @@ def test_page(page, crawler: PageCrawler, tester: ElementTester, url: str) -> Pa
             except Exception as e:
                 print_status(f"  Error testing element: {str(e)[:50]}", "warning")
 
+        if config.DISCOVERY_RESCAN_AFTER_INTERACTIONS:
+            _merge_links(page_test.discovered_links, crawler.discover_links())
+
         extra_links = []
         for test_result in page_test.element_tests:
             if not test_result.navigated_url:
@@ -417,7 +449,7 @@ def test_page(page, crawler: PageCrawler, tester: ElementTester, url: str) -> Pa
             if normalized not in page_test.discovered_links and normalized not in extra_links:
                 extra_links.append(normalized)
         if extra_links:
-            page_test.discovered_links.extend(extra_links)
+            _merge_links(page_test.discovered_links, extra_links)
 
         for test_result in page_test.element_tests:
             if test_result.status == TestStatus.FAILED and not test_result.screenshot_path and config.SCREENSHOT_ON_ERROR:
@@ -522,8 +554,80 @@ def run_tests():
         # Store tuples of (url, discovered_from, depth)
         urls_to_test = []
         tested_urls = set()
-        url_sources = {base_url: ("Start Page", 0)}  # Track where each URL was discovered from
+        url_sources = {}  # Track where each URL was discovered from
         crawl_strategy = config.CRAWL_STRATEGY
+
+        route_paths = []
+        route_matchers = []
+        route_param_values = normalize_param_values(config.ROUTE_SEED_DYNAMIC_PARAM_VALUES)
+        route_seed_set = set()
+        seed_base_url = config.ROUTE_SEED_BASE_URL or config.WEBSITE_URL
+
+        def _enqueue_seed_url(seed_url: str, source_label: str) -> bool:
+            normalized = crawler._normalize_url(seed_url)
+            if not crawler._is_valid_url(normalized):
+                return False
+            if config.SINGLE_MODULE and not is_url_in_module(normalized, config.SINGLE_MODULE):
+                return False
+            if normalized in route_seed_set:
+                return False
+            if normalized in tested_urls or normalized in [u[0] for u in urls_to_test]:
+                route_seed_set.add(normalized)
+                return False
+            urls_to_test.append((normalized, source_label, 0))
+            url_sources[normalized] = (source_label, 0)
+            route_seed_set.add(normalized)
+            return True
+
+        def _refresh_route_seeds(source_label: str) -> tuple[int, dict]:
+            if not route_paths:
+                return 0, {}
+            expanded_urls, seed_stats = expand_route_paths(
+                route_paths,
+                seed_base_url,
+                include_dynamic=config.ROUTE_SEED_INCLUDE_DYNAMIC,
+                param_values=route_param_values,
+                skip_missing=config.ROUTE_SEED_SKIP_MISSING_PARAMS
+            )
+            added = 0
+            for seed_url in expanded_urls:
+                if _enqueue_seed_url(seed_url, source_label):
+                    added += 1
+            return added, seed_stats
+
+        def _update_route_params_from_urls(candidate_urls) -> int:
+            if not route_matchers:
+                return 0
+            extracted = extract_param_values_from_urls(route_matchers, candidate_urls)
+            if not extracted:
+                return 0
+            updated = 0
+            for key, values in extracted.items():
+                current = route_param_values.setdefault(key, [])
+                for value in values:
+                    if value not in current:
+                        current.append(value)
+                        updated += 1
+            return updated
+
+        if config.USE_ROUTE_SEEDS and config.ROUTE_SEED_FILE:
+            route_paths, load_stats = load_route_paths(config.ROUTE_SEED_FILE)
+            if load_stats.get("missing_file"):
+                print_status(
+                    f"[WARN] Route seed file not found: {config.ROUTE_SEED_FILE}",
+                    "warning"
+                )
+            else:
+                route_matchers = build_route_matchers(route_paths)
+                added, seed_stats = _refresh_route_seeds("Route Seed")
+                seed_stats["total_paths"] = load_stats.get("total_paths", seed_stats.get("total_paths", 0))
+                print_status(
+                    "Route seeds: "
+                    f"{seed_stats.get('static_paths', 0)} static, "
+                    f"{seed_stats.get('dynamic_expanded', 0)} dynamic (from "
+                    f"{seed_stats.get('total_paths', 0)} paths)",
+                    "info"
+                )
 
         modules_to_test = config.MODULES
         if config.SINGLE_MODULE:
@@ -537,8 +641,9 @@ def run_tests():
             for module_name, module_urls in modules_to_test.items():
                 for seed_url in module_urls:
                     normalized = crawler._normalize_url(seed_url)
-                    urls_to_test.append((normalized, f"Module Seed: {module_name}", 0))
-                    url_sources[normalized] = (f"Module Seed: {module_name}", 0)
+                    if normalized not in [u[0] for u in urls_to_test]:
+                        urls_to_test.append((normalized, f"Module Seed: {module_name}", 0))
+                        url_sources[normalized] = (f"Module Seed: {module_name}", 0)
 
         normalized_base = crawler._normalize_url(base_url)
         should_add_base = True
@@ -609,6 +714,23 @@ def run_tests():
                         "error" if page_test.console_errors else "success")
             print_status(f"  Elements tested: {page_test.total_elements_tested} (Failed: {page_test.elements_failed})",
                         "error" if page_test.elements_failed else "success")
+
+            if config.USE_ROUTE_SEEDS and route_matchers:
+                candidate_urls = set()
+                candidate_urls.add(page_test.url)
+                candidate_urls.update(page_test.discovered_links)
+                for test_result in page_test.element_tests:
+                    if test_result.navigated_url:
+                        candidate_urls.add(test_result.navigated_url)
+                if candidate_urls:
+                    updated = _update_route_params_from_urls(candidate_urls)
+                    if updated:
+                        added, _ = _refresh_route_seeds("Route Seed (dynamic)")
+                        if added:
+                            print_status(
+                                f"  Added {added} route seed URLs from dynamic params",
+                                "info"
+                            )
             
             # Add discovered links to queue with source tracking
             new_links_count = 0

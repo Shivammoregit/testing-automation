@@ -162,6 +162,105 @@ class PageCrawler:
         if parsed.netloc and parsed.netloc != self.base_domain:
             return False
         return self._url_in_selected_module(absolute_url)
+
+    def _is_excluded_discovery_text(self, element) -> bool:
+        """Skip discovery clicks for elements with excluded text."""
+        if not config.DISCOVERY_EXCLUDED_TEXT:
+            return False
+        try:
+            text = (self._get_element_text(element) or "").lower()
+        except Exception:
+            return False
+        if not text or text in ("[no text]", "[unknown]"):
+            return False
+        for token in config.DISCOVERY_EXCLUDED_TEXT:
+            if token and token.lower() in text:
+                return True
+        return False
+
+    def _is_safe_discovery_target(self, element) -> bool:
+        """Limit discovery clicks to low-risk toggles."""
+        if not self._should_include_element(element):
+            return False
+        if self._is_excluded_discovery_text(element):
+            return False
+        try:
+            if not element.is_visible():
+                return False
+        except Exception:
+            return False
+        try:
+            if not element.is_enabled():
+                return False
+        except Exception:
+            pass
+        try:
+            href = element.get_attribute("href")
+        except Exception:
+            href = None
+        if href:
+            href_lower = href.lower()
+            if href == "#" or href_lower.startswith("javascript:") or "void(0)" in href_lower:
+                return True
+            return False
+        return True
+
+    def expand_discovery_elements(self) -> int:
+        """Try expanding navigation or toggles to reveal hidden links."""
+        if not config.DISCOVERY_EXPAND_NAV:
+            return 0
+        max_clicks = max(0, int(config.DISCOVERY_MAX_EXPAND_CLICKS))
+        if max_clicks == 0:
+            return 0
+
+        clicked = 0
+        seen = set()
+        for selector in config.DISCOVERY_CLICK_SELECTORS:
+            if clicked >= max_clicks:
+                break
+            query = selector if ":visible" in selector else f"{selector}:visible"
+            try:
+                elements = self.page.query_selector_all(query)
+            except Exception:
+                continue
+            for element in elements:
+                if clicked >= max_clicks:
+                    break
+                if not self._is_safe_discovery_target(element):
+                    continue
+                key = f"{self._get_selector(element)}|{self._get_element_text(element)}"
+                if key in seen:
+                    continue
+                seen.add(key)
+                try:
+                    element.click(timeout=config.ELEMENT_TIMEOUT)
+                    clicked += 1
+                    time.sleep(config.ELEMENT_INTERACTION_DELAY)
+                except Exception:
+                    continue
+
+        return clicked
+
+    def scroll_page(self) -> bool:
+        """Scroll the page to trigger lazy-loaded content."""
+        if not config.DISCOVERY_SCROLL:
+            return False
+        try:
+            total_height = self.page.evaluate("() => document.body.scrollHeight") or 0
+            if total_height <= 0:
+                return False
+            steps = max(1, int(config.DISCOVERY_SCROLL_STEPS))
+            step_size = max(1, int(total_height / steps))
+            for step in range(1, steps + 1):
+                position = min(total_height, step * step_size)
+                self.page.evaluate("(y) => window.scrollTo(0, y)", position)
+                time.sleep(config.DISCOVERY_SCROLL_PAUSE_MS / 1000)
+            if config.DISCOVERY_SCROLL_TO_TOP:
+                self.page.evaluate("() => window.scrollTo(0, 0)")
+                time.sleep(config.DISCOVERY_SCROLL_PAUSE_MS / 1000)
+            return True
+        except Exception:
+            return False
     
     def _normalize_url(self, url: str) -> str:
         """Normalize URL for comparison."""

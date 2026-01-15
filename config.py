@@ -29,9 +29,8 @@ WEBSITE_URL = "https://devapp.petyosa.com/login"  # Replace with your website UR
 
 # # Login configuration
 LOGIN_URL = "https://devapp.petyosa.com/login"  # Leave empty to use WEBSITE_URL, or specify login page URL
-LOGIN_WAIT_TIME = 60  # Seconds to wait for manual OTP login
+LOGIN_WAIT_TIME = 120  # Seconds to wait for manual OTP login
 
-# Auto-login configuration (optional)
 AUTO_LOGIN_ENABLED = True
 AUTO_LOGIN_PHONE = "99999999999"
 AUTO_LOGIN_OTP = "999999"
@@ -47,15 +46,43 @@ AUTO_LOGIN_OTP_WAIT_MS = 15000
 # ============================================================
 # SINGLE MODULE TESTING (Set to module name or None for all)
 # ============================================================
-SINGLE_MODULE = "PawMatch"  # Examples: "PawMatch", "GroomUp", None (for all)
+SINGLE_MODULE = None  # Examples: "PawMatch", "GroomUp", None (for all)
 
 # Crawling configuration
-MAX_PAGES_TO_CRAWL = 100  # Maximum number of pages to discover and test
+MAX_PAGES_TO_CRAWL = 400  # Maximum number of pages to discover and test
 MAX_DEPTH = 5  # Maximum link depth to crawl
 CRAWL_DELAY = 1  # Seconds to wait between page loads
 ELEMENT_INTERACTION_DELAY = 0.5  # Seconds to wait between element interactions
 INCLUDE_QUERY_PARAMS = True  # Keep query params when normalizing URLs
 INCLUDE_HASH = False  # Keep URL hash fragments when normalizing URLs
+
+# Discovery behavior (coverage improvements)
+DISCOVERY_WAIT_FOR_SELECTOR = ""  # Optional CSS selector to wait for before discovery
+DISCOVERY_WAIT_TIMEOUT_MS = 10000
+DISCOVERY_EXPAND_NAV = True  # Try expanding menus/toggles before discovery
+DISCOVERY_MAX_EXPAND_CLICKS = 12
+DISCOVERY_CLICK_SELECTORS = [
+    "button[aria-expanded='false']",
+    "[aria-haspopup='true']",
+    "[data-toggle='dropdown']",
+    "[data-bs-toggle='dropdown']",
+    "button[aria-controls]",
+]
+DISCOVERY_EXCLUDED_TEXT = [
+    "logout",
+    "sign out",
+    "signout",
+    "delete",
+    "remove",
+    "unsubscribe",
+    "deactivate",
+]
+DISCOVERY_SCROLL = True  # Scroll to trigger lazy-loaded content
+DISCOVERY_SCROLL_STEPS = 6
+DISCOVERY_SCROLL_PAUSE_MS = 400
+DISCOVERY_SCROLL_TO_TOP = True
+DISCOVERY_RESCAN_AFTER_SCROLL = True
+DISCOVERY_RESCAN_AFTER_INTERACTIONS = True
 
 # Timeouts (in milliseconds)
 PAGE_LOAD_TIMEOUT = 30000
@@ -108,12 +135,12 @@ MODULES = {
     "HomeVaxi": ["https://devapp.petyosa.com/homevaxi"],
     "FeedaPaw": ["https://devapp.petyosa.com/feedapaw"],
     "PawMatch": [
-        "https://devapp.petyosa.com/pawmatch",
-        "https://devapp.petyosa.com/pawmatch/profile-setup",
-        "https://devapp.petyosa.com/pawmatch/verification",
-        "https://devapp.petyosa.com/pawmatch/swipe",
-        "https://devapp.petyosa.com/pawmatch/matches",
-        "https://devapp.petyosa.com/pawmatch/settings",
+        "https://devapp.petyosa.com/pawmatch"
+        # "https://devapp.petyosa.com/pawmatch/profile-setup",
+        # "https://devapp.petyosa.com/pawmatch/verification",
+        # "https://devapp.petyosa.com/pawmatch/swipe",
+        # "https://devapp.petyosa.com/pawmatch/matches",
+        # "https://devapp.petyosa.com/pawmatch/settings",
     ],
     "ShopYosa": ["https://devapp.petyosa.com/shopyosa"],
     "Timeline": ["https://devapp.petyosa.com/timeline-premium"],
@@ -122,9 +149,20 @@ MODULES = {
     "Community": ["https://devapp.petyosa.com/community"],
 }
 
+# Route seed configuration (optional)
+USE_ROUTE_SEEDS = True
+ROUTE_SEED_FILE = r"C:\christ\petyosa\codebase\pet-frontend\src\Routes.js"
+ROUTE_SEED_BASE_URL = ""  # Optional override; defaults to WEBSITE_URL origin
+ROUTE_SEED_INCLUDE_DYNAMIC = True
+ROUTE_SEED_SKIP_MISSING_PARAMS = True
+ROUTE_SEED_DYNAMIC_PARAM_VALUES = {
+    # "id": ["example-id"],
+    # "orderId": ["example-order"],
+}
+
 # Crawl strategy: bfs (breadth-first) or dfs (depth-first)
 # Note: dfs is automatically used when SINGLE_MODULE is set
-CRAWL_STRATEGY = "dfs"
+CRAWL_STRATEGY = "bfs"
 
 # Output settings
 OUTPUT_FOLDER = "test_results"
