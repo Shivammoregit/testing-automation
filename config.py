@@ -23,13 +23,16 @@ Available modules:
     - Community
 ============================================================
 """
-
+# Gemini summary generation
+GEMINI_MODEL = "gemini-2.5-flash"
+GEMINI_API_VERSION = "v1"
+GEMINI_TIMEOUT_SECONDS = 60
 # Website configuration
 WEBSITE_URL = "https://devapp.petyosa.com/login"  # Replace with your website URL
 
 # # Login configuration
 LOGIN_URL = "https://devapp.petyosa.com/login"  # Leave empty to use WEBSITE_URL, or specify login page URL
-LOGIN_WAIT_TIME = 60  # Seconds to wait for manual OTP login
+LOGIN_WAIT_TIME = 15  # Seconds to wait for manual OTP login
 
 # Auto-login configuration (optional)
 AUTO_LOGIN_ENABLED = True
@@ -47,7 +50,7 @@ AUTO_LOGIN_OTP_WAIT_MS = 15000
 # ============================================================
 # SINGLE MODULE TESTING (Set to module name or None for all)
 # ============================================================
-SINGLE_MODULE = "PawMatch"  # Examples: "PawMatch", "GroomUp", None (for all)
+SINGLE_MODULE = None  # Examples: "PawMatch", "GroomUp", None (for all)
 
 # Crawling configuration
 MAX_PAGES_TO_CRAWL = 100  # Maximum number of pages to discover and test
@@ -124,7 +127,7 @@ MODULES = {
 
 # Crawl strategy: bfs (breadth-first) or dfs (depth-first)
 # Note: dfs is automatically used when SINGLE_MODULE is set
-CRAWL_STRATEGY = "dfs"
+CRAWL_STRATEGY = "bfs"
 
 # Output settings
 OUTPUT_FOLDER = "test_results"

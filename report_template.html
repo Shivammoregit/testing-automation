@@ -457,6 +457,95 @@
             box-shadow: 0 0 10px var(--error);
         }
 
+        .summary-actions {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .summary-preview {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            font-size: 0.9rem;
+            color: var(--text-gray);
+        }
+
+        .summary-preview h1,
+        .summary-preview h2,
+        .summary-preview h3 {
+            color: var(--text-white);
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .summary-preview h1 {
+            font-size: 1.2rem;
+            color: var(--accent);
+        }
+
+        .summary-preview h2 {
+            font-size: 1rem;
+        }
+
+        .summary-preview h3 {
+            font-size: 0.95rem;
+        }
+
+        .summary-preview p {
+            margin: 0.25rem 0;
+        }
+
+        .summary-preview ul {
+            margin: 0.5rem 0 0.75rem 1.2rem;
+        }
+
+        .summary-preview li {
+            margin: 0.25rem 0;
+        }
+
+        .summary-preview code {
+            font-family: 'SF Mono', Monaco, monospace;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 0.1rem 0.35rem;
+            border-radius: 6px;
+            color: var(--text-white);
+        }
+
+        .summary-preview .summary-text {
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: inherit;
+            font-size: 0.9rem;
+            color: var(--text-gray);
+        }
+
+        .summary-preview :first-child {
+            margin-top: 0;
+        }
+
+        .summary-raw summary {
+            cursor: pointer;
+            color: var(--text-gray);
+        }
+
+        .summary-raw pre {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            padding: 1rem;
+            border-radius: 8px;
+            overflow: auto;
+            font-size: 0.8rem;
+            color: var(--text-gray);
+            margin-top: 0.5rem;
+        }
+
         /* Section */
         .section {
             background: var(--bg-card);
@@ -1309,6 +1398,9 @@
                 <div class="nav-section-title">Navigation</div>
             </div>
             <a href="#summary" class="nav-link" onclick="closeMenu()">📈 Summary</a>
+            {% if human_summary_text_escaped %}
+            <a href="#human-summary" class="nav-link" onclick="closeMenu()">Human Summary</a>
+            {% endif %}
             <a href="#modules" class="nav-link" onclick="closeMenu()">📦 Modules</a>
             <a href="#errors" class="nav-link" onclick="closeMenu()">⚠️ Errors by Module</a>
             <a href="#results" class="nav-link" onclick="closeMenu()">📄 Page Results</a>
@@ -1346,7 +1438,7 @@
             </div>
         </header>
 
-        <div class="guide fade-in" id="summary">
+        <div class="guide fade-in" id="overview">
             <h2>📖 Understanding This Report</h2>
             <p>This report shows automated test results for your website. We visited each page, checked for loading
                 errors, JavaScript issues, and tested interactive elements like buttons and links.</p>
@@ -1401,6 +1493,43 @@
                     style="width: {{ rate }}%"></div>
             </div>
         </div>
+
+        <div class="section fade-in" id="summary">
+            <div class="section-header expanded" onclick="toggleSection(this)">
+                <div class="section-title"><span class="icon">#</span> Summary Report</div>
+                <span class="section-toggle rotated">ƒ-¬</span>
+            </div>
+            <div class="section-content show">
+                <div class="summary-actions">
+                    <a class="action-btn" href="summary_report.md" download>Download summary_report.md</a>
+                </div>
+                <div class="summary-preview">
+                    {{ summary_html | safe }}
+                </div>
+                <details class="summary-raw">
+                    <summary>View raw Markdown</summary>
+                    <pre>{{ summary_markdown_escaped }}</pre>
+                </details>
+            </div>
+        </div>
+
+        {% if human_summary_text_escaped %}
+        <div class="section fade-in" id="human-summary">
+            <div class="section-header expanded" onclick="toggleSection(this)">
+                <div class="section-title"><span class="icon">H</span> Human Summary</div>
+                <span class="section-toggle rotated">Т'-Aк</span>
+            </div>
+            <div class="section-content show">
+                <div class="summary-actions">
+                    <a class="action-btn" href="human_summary.txt" download>Download human_summary.txt</a>
+                    <a class="action-btn" href="humansummary.md" download>Download humansummary.md</a>
+                </div>
+                <div class="summary-preview">
+                    <pre class="summary-text">{{ human_summary_text_escaped }}</pre>
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         {% if module_summary %}
         <div class="section fade-in" id="modules">

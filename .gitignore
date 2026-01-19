@@ -13,3 +13,4 @@ __pycache__/
 # Archives
 *.zip
 test.js
+.env

@@ -635,8 +635,11 @@ def run_tests():
     print_status(f"{'='*60}\n", "highlight")
     
     report_gen = ReportGenerator(output_folder)
-    report_path = report_gen.generate_report(session)
     json_path = report_gen.save_session_data(session)
+    report_path, summary_path, human_summary_path = report_gen.generate_report(
+        session,
+        json_path=json_path,
+    )
     
     # Print summary
     print_status("\n## TEST SUMMARY", "highlight")
@@ -654,6 +657,8 @@ def run_tests():
     
     print_status(f"\n[FILE] Report saved to: {report_path}", "success")
     print_status(f"[FILE] Data saved to: {json_path}", "success")
+    print_status(f"[FILE] Summary saved to: {summary_path}", "success")
+    print_status(f"[FILE] Human summary saved to: {human_summary_path}", "success")
     
     # Open report in browser
     print_status("\n>> Opening report in browser...", "info")
