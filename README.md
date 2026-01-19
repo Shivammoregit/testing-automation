@@ -205,6 +205,9 @@ MODULES = {
 - Some elements may be dynamically loaded
 - Try increasing `CRAWL_DELAY` in config.py
 
+.env file : 
+GEMINI_API_KEY=""
+
 ## 📝 License
 
 MIT License - Feel free to modify and use as needed!
