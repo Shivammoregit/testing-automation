@@ -5,7 +5,7 @@ import os
 from typing import Optional
 
 client = genai.Client(
-    api_key="AIzaSyDzV0T36zqHYJqZFSMw-EhAMr58e9LwCpk"
+    api_key=""
 ) 
 
 def clean_text(text):
